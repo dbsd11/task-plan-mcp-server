@@ -1,0 +1,17 @@
+{
+  "name": "task-plan-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server with ReMe memory integration for dynamic tool planning",
+  "main": "src/server.py",
+  "scripts": {
+    "start": "python -m src.server --transport sse --port 58080"
+  },
+  "keywords": [
+    "mcp",
+    "memory",
+    "tool-planning",
+    "reme"
+  ],
+  "author": "",
+  "license": "MIT"
+}
