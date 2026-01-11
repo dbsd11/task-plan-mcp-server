@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 
 from reme_ai import ReMeApp
 
-from .types import (
+from ..types import (
     ContextConfig,
     ContextInfo,
     MemoryOperationResult,
@@ -16,12 +16,13 @@ from .types import (
 class MemoryManager:
     """Memory管理器 - 支持Context隔离的memory操作"""
 
-    def __init__(self, llm_model: str, embedding_model: str, vector_store_backend: str = "memory"):
+    def __init__(self, llm_model: str, embedding_model: str, vector_store_backend: str = "memory", tool_registry = None):
         self.llm_model = llm_model
         self.embedding_model = embedding_model
         self.vector_store_backend = vector_store_backend
         self._base_workspace_id = "reme_mcp_workspace"
         self._contexts: Dict[str, ContextConfig] = {}
+        self._tool_registry = tool_registry
 
         import os
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -258,38 +259,6 @@ class MemoryManager:
         )
         return result.get("answer", "") if result else ""
 
-    async def set_task_context(self, context_id: str, context_content: str,
-                                metadata: Optional[Dict[str, Any]] = None) -> MemoryOperationResult:
-        """设置Task Context (用于特定任务的上下文信息)
-
-        Args:
-            context_id: Context ID
-            context_content: 上下文内容
-            metadata: 元数据
-
-        Returns:
-            操作结果
-        """
-        app = await self._get_app()
-        workspace_id = self._get_workspace_id(context_id)
-        messages = [
-            {"role": "user", "content": f"Task Context: {context_content}"},
-        ]
-        result = await app.async_execute(
-            name="summary_task_memory",
-            workspace_id=workspace_id,
-            trajectories=[
-                {"messages": messages, "score": 1.0},
-            ],
-            extra_info=metadata or {},
-        )
-        return MemoryOperationResult(
-            success=result is not None,
-            message="Task context set",
-            memory_type="task",
-            context_id=context_id,
-        )
-
     async def retrieve_task_memory(self, context_id: str, query: str) -> str:
         """检索Task Memory
 
@@ -311,6 +280,7 @@ class MemoryManager:
 
     async def add_tool_call_result(self, context_id: str, tool_name: str,
                                     tool_input: Dict[str, Any], tool_output: Any,
+                                    success: bool, create_time: str,
                                     execution_time: float = 0.0) -> MemoryOperationResult:
         """添加工具调用结果到Tool Memory
 
@@ -332,15 +302,17 @@ class MemoryManager:
             tool_call_results=[
                 {
                     "tool_name": tool_name,
-                    "tool_input": json.dumps(tool_input, ensure_ascii=False),
-                    "tool_output": json.dumps(tool_output, ensure_ascii=False),
-                    "execution_time": execution_time,
+                    "input": json.dumps(tool_input, ensure_ascii=False),
+                    "output": json.dumps(tool_output, ensure_ascii=False),
+                    "success": success,
+                    "create_time": create_time,
+                    "time_cost": execution_time,
                 }
             ],
         )
         return MemoryOperationResult(
-            success=result is not None,
-            message="Tool call result added",
+            success=result["success"],
+            message=json.dumps(result["metadata"], ensure_ascii=False),
             memory_type="tool",
             context_id=context_id,
         )
@@ -390,6 +362,25 @@ class MemoryManager:
             if memory_list:
                 return memory_list[0].get("content", "")
         return ""
+
+    async def summarize_all_tool_memory(self, context_id: str) -> str:
+        """总结当前Context所有工具的使用记忆
+
+        Args:
+            context_id: Context ID
+
+        Returns:
+            工具使用总结
+        """
+        if not self._tool_registry:
+            return "No tool registry available"
+            
+        registered_tools = self._tool_registry.list_tools(context_id)
+        if not registered_tools:
+            return "No tools registered for this context"
+
+        tool_names = ",".join([tool.tool_name for tool in registered_tools])
+        return await self.summarize_tool_memory(context_id, tool_names)
 
     async def write_working_memory(self, context_id: str, messages: List[Dict[str, Any]],
                                     working_summary_mode: str = "auto",
@@ -543,10 +534,17 @@ class MemoryManager:
         personal = await self.retrieve_personal_memory(context_id, query)
         task = await self.retrieve_task_memory(context_id, query)
 
+        # 基于tool registry获取context注册的所有工具名
+        tool_names = ""
+        if self._tool_registry:
+            registered_tools = self._tool_registry.list_tools(context_id)
+            if registered_tools:
+                tool_names = ",".join([tool.tool_name for tool in registered_tools])
+
         if summarize:
-            tool_memory = await self.summarize_tool_memory(context_id, query)
+            tool_memory = await self.summarize_tool_memory(context_id, tool_names)
         else:
-            tool_memory = await self.retrieve_tool_memory(context_id, query)
+            tool_memory = await self.retrieve_tool_memory(context_id, tool_names)
         return {
             "personal_memory": personal,
             "task_memory": task,

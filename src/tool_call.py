@@ -130,10 +130,12 @@ ServerMCPTools = [
                             "tool_name": {"type": "string"},
                             "domain": {"type": "string"},
                             "success": {"type": "boolean"},
+                            "input": {},
                             "output": {},
                             "error": {"type": "string"},
+                            "create_time": {"type": "string"},
                             "execution_time": {"type": "number"},
-                        },                                                                                                                                                                                                                                                       
+                        },                                                                                                                                                                                                                                       
                         "required": ["step_id", "success"],
                     },
                 },
@@ -189,10 +191,10 @@ class ToolCallHandler:
     ):
         self.llm_model = os.getenv("FLOW_LLM_MODEL", "qwen3-30b-a3b-thinking-2507")
         self.embedding_model = os.getenv("FLOW_EMBEDDING_MODEL", "text-embedding-v4")
-        self.memory_manager = MemoryManager(self.llm_model, self.embedding_model)
         self.tool_registry = ToolRegistry()
+        self.memory_manager = MemoryManager(self.llm_model, self.embedding_model, tool_registry=self.tool_registry)
         self.tool_planner = ToolPlanner(self.memory_manager, self.tool_registry)
-        self.plan_adjuster = DynamicPlanAdjuster(self.memory_manager, self.tool_registry)
+        self.plan_adjuster = DynamicPlanAdjuster(self.memory_manager)
         self._context_plans: Dict[str, Plan] = {}
     
     def _get_context_plans(self, context_id: str) -> Dict[str, Plan]:
@@ -264,6 +266,7 @@ class ToolCallHandler:
             
             results = []
             for f in feedback:
+                from datetime import datetime
                 results.append(PlanExecutionResult(
                     plan_id=plan_id,
                     context_id=context_id,
@@ -274,12 +277,25 @@ class ToolCallHandler:
                     input=f.get("input"),
                     output=f.get("output"),
                     error=f.get("error"),
+                    create_time=f.get("create_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
                     execution_time=f.get("execution_time", 0.0),
                 ))
             
             # 先从执行结果中学习
             for result in results:
                 if result.tool_name:
+                    # 检查工具是否已在registry中注册，如未注册则自动注册
+                    if not self.tool_registry.has_tool(result.tool_name, result.domain, context_id):
+                        # 创建并注册ToolDefinition
+                        tool_def = ToolDefinition(
+                            domain=result.domain,
+                            tool_name=result.tool_name,
+                            description=f"Auto-registered tool from execution: {result.tool_name}",
+                            args={},
+                            output={}
+                        )
+                        self.tool_registry.register(tool_def, context_id)
+                    
                     # 调用learn_from_execution方法记录工具执行结果
                     await self.plan_adjuster.learn_from_execution(
                         context_id=context_id,
@@ -287,6 +303,8 @@ class ToolCallHandler:
                         success=result.success,
                         input_data=result.input,
                         output_data=result.output,
+                        create_time=result.create_time,
+                        execution_time=result.execution_time,
                     )
             
             # 然后调整计划

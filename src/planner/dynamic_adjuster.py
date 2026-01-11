@@ -16,49 +16,8 @@ from ..types import (
 class DynamicPlanAdjuster:
     """动态规划调整器 - 基于工具执行结果调整后续规划，支持Context隔离"""
 
-    def __init__(self, memory_manager: MemoryManager, tool_registry = None):
+    def __init__(self, memory_manager: MemoryManager):
         self.memory_manager = memory_manager
-        self.tool_registry = tool_registry
-
-    async def get_context_tools(self, context_id: str) -> List[ToolDefinition]:
-        """获取当前Context注册的所有工具
-
-        Args:
-            context_id: Context ID
-
-        Returns:
-            工具定义列表
-        """
-        if self.tool_registry:
-            return self.tool_registry.list_tools(context_id)
-        return []
-
-    async def summarize_all_tool_memory(self, context_id: str) -> str:
-        """总结当前Context所有工具的使用记忆
-
-        Args:
-            context_id: Context ID
-
-        Returns:
-            工具使用总结
-        """
-        tools = await self.get_context_tools(context_id)
-        if not tools:
-            return "No tools registered for this context"
-
-        tool_names = [tool.tool_name for tool in tools]
-        app = await self.memory_manager._get_app()
-        workspace_id = self.memory_manager._get_workspace_id(context_id)
-        result = await app.async_execute(
-            name="summary_tool_memory",
-            workspace_id=workspace_id,
-            tool_names=",".join(tool_names),
-        )
-        if result:
-            memory_list = result.get("metadata", {}).get("memory_list", [])
-            if memory_list:
-                return memory_list[0].get("content", "")
-        return "No tool memory available"
 
     async def analyze_execution_results(
         self, plan: Plan, results: List[PlanExecutionResult]
@@ -113,7 +72,7 @@ class DynamicPlanAdjuster:
         Returns:
             调整提示词
         """
-        tool_memory_info = await self.summarize_all_tool_memory(context_id)
+        tool_memory_info = await self.memory_manager.summarize_all_tool_memory(context_id)
 
         results_summary = []
         for r in results:
@@ -207,6 +166,8 @@ class DynamicPlanAdjuster:
 
         prompt = await self._build_adjustment_prompt(context_id, plan, results, analysis)
 
+        # 使用MemoryManager的get_combined_memory方法来获取工具记忆，而不是直接调用app.async_execute
+        # 这里我们需要一个方法来执行react操作，但是MemoryManager中没有提供，所以我们暂时保留直接调用
         app = await self.memory_manager._get_app()
         result = await app.async_execute(
             name="react",
@@ -273,7 +234,7 @@ class DynamicPlanAdjuster:
 
     async def learn_from_execution(
         self, context_id: str, tool_name: str, success: bool,
-        input_data: Dict, output_data: Any
+        input_data: Dict, output_data: Any, create_time: str, execution_time: float = 0.0
     ) -> None:
         """从执行结果中学习（针对指定Context）
 
@@ -289,5 +250,7 @@ class DynamicPlanAdjuster:
             tool_name=tool_name,
             tool_input=input_data,
             tool_output=output_data,
-            execution_time=0.0,
+            success=success,
+            create_time=create_time,
+            execution_time=execution_time,
         )

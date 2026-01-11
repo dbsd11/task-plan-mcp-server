@@ -51,6 +51,7 @@ class PlanExecutionResult(BaseModel):
     input: Any = Field(default=None, description="工具输入")
     output: Any = Field(default=None, description="工具输出")
     error: Optional[str] = Field(default=None, description="错误信息")
+    create_time: str = Field(default="", description="创建时间 %Y-%m-%d %H:%M:%S")
     execution_time: float = Field(default=0.0, description="执行时间")
 
 

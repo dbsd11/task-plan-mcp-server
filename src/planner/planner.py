@@ -123,10 +123,11 @@ class ToolPlanner:
         """
         import json
 
-        personal_memory = await self.memory_manager.retrieve_personal_memory(context_id, query)
-        task_memory = await self.memory_manager.retrieve_task_memory(context_id, query)
-        # 检索工具使用记忆
-        tool_memory = await self.memory_manager.retrieve_tool_memory(context_id, query)
+        # 使用MemoryManager的get_combined_memory方法获取所有记忆
+        combined_memory = await self.memory_manager.get_combined_memory(context_id, query)
+        personal_memory = combined_memory["personal_memory"]
+        task_memory = combined_memory["task_memory"]
+        tool_memory = combined_memory["tool_memory"]
 
         prompt = await self._build_planning_prompt(context_id, query, personal_memory, task_memory, tool_memory)
 
