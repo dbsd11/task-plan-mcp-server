@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "task-plan-mcp-server": {
+      "url": "http://localhost:58080/sse",
+      "transport": "sse"
+    }
+  }
+}

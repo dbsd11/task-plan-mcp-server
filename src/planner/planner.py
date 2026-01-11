@@ -6,8 +6,8 @@ from typing import List, Dict, Any, Optional
 
 from reme_ai import ReMeApp
 
-from ..memory import (
-    MemoryManager,
+from ..memory import MemoryManager
+from ..types import (
     ToolDefinition,
     PlanStep,
     Plan,
@@ -36,7 +36,8 @@ class ToolPlanner:
 
     async def _build_planning_prompt(self, context_id: str, query: str,
                                      personal_memory: str,
-                                     task_memory: str) -> str:
+                                     task_memory: str,
+                                     tool_memory: str) -> str:
         """构建规划提示词
 
         Args:
@@ -44,6 +45,7 @@ class ToolPlanner:
             query: 用户查询
             personal_memory: 个人记忆
             task_memory: 任务记忆
+            tool_memory: 工具记忆
 
         Returns:
             规划提示词
@@ -77,6 +79,9 @@ class ToolPlanner:
 
 ## 任务相关记忆
 {task_memory if task_memory else "无"}
+
+## 工具使用记忆
+{tool_memory if tool_memory else "无"}
 
 ## 规划要求
 1. 分析查询意图，确定需要调用的工具和顺序
@@ -120,8 +125,10 @@ class ToolPlanner:
 
         personal_memory = await self.memory_manager.retrieve_personal_memory(context_id, query)
         task_memory = await self.memory_manager.retrieve_task_memory(context_id, query)
+        # 检索工具使用记忆
+        tool_memory = await self.memory_manager.retrieve_tool_memory(context_id, query)
 
-        prompt = await self._build_planning_prompt(context_id, query, personal_memory, task_memory)
+        prompt = await self._build_planning_prompt(context_id, query, personal_memory, task_memory, tool_memory)
 
         app = await self.memory_manager._get_app()
         result = await app.async_execute(

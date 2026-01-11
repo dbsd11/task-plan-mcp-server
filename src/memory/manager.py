@@ -1,17 +1,11 @@
 """Memory管理器 - 封装ReMe的memory操作，支持Context隔离"""
 
-import asyncio
 import json
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 
 from reme_ai import ReMeApp
 
 from .types import (
-    ToolDefinition,
-    PlanExecutionResult,
-    ToolCallResult,
-    WorkingMemoryContext,
     ContextConfig,
     ContextInfo,
     MemoryOperationResult,
@@ -444,7 +438,6 @@ class MemoryManager:
             "message": "Working memory processed",
             "compressed_messages": result.get("answer", []) if result else messages,
             "context_id": context_id,
-            "task_id": task_id,
             "metadata": result.get("metadata", {}) if result else {},
         }
 

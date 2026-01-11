@@ -3,10 +3,8 @@
 import json
 from typing import List, Dict, Any, Optional
 
-from reme_ai import ReMeApp
-
-from ..memory import (
-    MemoryManager,
+from ..memory import MemoryManager
+from ..types import (
     Plan,
     PlanStep,
     PlanExecutionResult,

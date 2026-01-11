@@ -5,25 +5,15 @@ from mcp.types import Tool
 ServerMCPTools = [
     Tool(
         name="create_context",
-        description="Create a new planning context for isolating memory and planning",
+        description="Create a new planning context for isolating memory and planning, with optional tool registration and entity memory setup",
         inputSchema={
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Context name (optional)"},
                 "description": {"type": "string", "description": "Context description (optional)"},
-            },
-        },
-    ),
-    Tool(
-        name="register_tools_batch",
-        description="Batch register multiple client tools",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "context_id": {"type": "string", "description": "Context ID (optional)"},
                 "tools": {
                     "type": "array",
-                    "description": "List of tool definitions",
+                    "description": "List of tool definitions to register (optional)",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -36,20 +26,9 @@ ServerMCPTools = [
                         "required": ["domain", "tool_name", "description"],
                     },
                 },
-            },
-            "required": ["tools"],
-        },
-    ),
-    Tool(
-        name="set_entity_memory",
-        description="Set up entity memory with structured entity information for a context",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "context_id": {"type": "string", "description": "Context ID"},
                 "entities": {
                     "type": "array",
-                    "description": "List of entity definitions",
+                    "description": "List of entity definitions to set (optional)",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -75,9 +54,8 @@ ServerMCPTools = [
                         "required": ["entity_id", "entity_type", "name"],
                     },
                 },
-                "metadata": {"type": "object", "description": "Optional metadata"},
+                "metadata": {"type": "object", "description": "Optional metadata for entity memory"},
             },
-            "required": ["context_id", "entities"],
         },
     ),
     Tool(
@@ -87,6 +65,7 @@ ServerMCPTools = [
             "type": "object",
             "properties": {
                 "context_id": {"type": "string", "description": "Context ID"},
+                "task_id": {"type": "string", "description": "Task ID"},
                 "messages": {
                     "type": "array",
                     "description": "List of conversation messages",
@@ -101,12 +80,12 @@ ServerMCPTools = [
                 },
                 "metadata": {"type": "object", "description": "Optional metadata"},
             },
-            "required": ["context_id", "messages"],
+            "required": ["context_id", "task_id", "messages"],
         },
     ),
     Tool(
-        name="write_working_memory",
-        description="Write to working memory and get compressed context history",
+        name="compress_working_memory",
+        description="compress working memory and get compressed context history",
         inputSchema={
             "type": "object",
             "properties": {
@@ -134,20 +113,8 @@ ServerMCPTools = [
         },
     ),
     Tool(
-        name="plan_tool_calls",
-        description="Dynamically plan tool calls for a query within a context",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "context_id": {"type": "string", "description": "Context ID"},
-                "query": {"type": "string", "description": "User query to plan for"},
-            },
-            "required": ["context_id", "query"],
-        },
-    ),
-    Tool(
-        name="adjust_tool_plan",
-        description="Dynamically adjust tool plan based on execution feedback",
+        name="save_tool_execution_feedback_memory",
+        description="save tool execution feedback",
         inputSchema={
             "type": "object",
             "properties": {
@@ -175,6 +142,18 @@ ServerMCPTools = [
         },
     ),
     Tool(
+        name="plan_tool_calls",
+        description="Dynamically plan tool calls for a query within a context",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "context_id": {"type": "string", "description": "Context ID"},
+                "query": {"type": "string", "description": "User query to plan for"},
+            },
+            "required": ["context_id", "query"],
+        },
+    ),
+    Tool(
         name="get_combined_memory",
         description="Get combined personal and task memory for a context",
         inputSchema={
@@ -191,8 +170,8 @@ ServerMCPTools = [
 
 import os
 
-from .memory import (
-    MemoryManager,
+from .memory import MemoryManager
+from .types import (
     ToolDefinition,
     Plan,
     PlanExecutionResult,
@@ -215,19 +194,12 @@ class ToolCallHandler:
         self.tool_planner = ToolPlanner(self.memory_manager, self.tool_registry)
         self.plan_adjuster = DynamicPlanAdjuster(self.memory_manager, self.tool_registry)
         self._context_plans: Dict[str, Plan] = {}
-        self._context_executions: Dict[str, List[PlanExecutionResult]] = {}
     
     def _get_context_plans(self, context_id: str) -> Dict[str, Plan]:
         """获取context的计划字典"""
         if context_id not in self._context_plans:
             self._context_plans[context_id] = {}
         return self._context_plans[context_id]
-    
-    def _get_context_executions(self, context_id: str) -> List[PlanExecutionResult]:
-        """获取context的执行结果列表"""
-        if context_id not in self._context_executions:
-            self._context_executions[context_id] = []
-        return self._context_executions[context_id]
     
     async def handle_tool_call(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """处理工具调用"""
@@ -237,67 +209,55 @@ class ToolCallHandler:
                 name=arguments.get("name", ""),
                 description=arguments.get("description", ""),
             )
-            return {
+            context_id = config.context_id
+            
+            # Handle tool registration if provided
+            tools_registered = 0
+            if "tools" in arguments and arguments["tools"]:
+                tool_definitions = []
+                for t in arguments["tools"]:
+                    tool_definitions.append(ToolDefinition(
+                        domain=t["domain"],
+                        tool_name=t["tool_name"],
+                        description=t["description"],
+                        args=t.get("args", {}),
+                        output=t.get("output", {}),
+                    ))
+                tools_registered = self.tool_registry.register_batch(tool_definitions, context_id)
+            
+            # Handle entity memory setup if provided
+            entity_result = None
+            if "entities" in arguments and arguments["entities"]:
+                entity_result = await self.memory_manager.set_entity_memory(
+                    context_id,
+                    arguments["entities"],
+                    arguments.get("metadata"),
+                )
+            
+            result = {
                 "success": True,
-                "context_id": config.context_id,
+                "context_id": context_id,
                 "name": config.name,
                 "description": config.description,
                 "created_at": config.created_at,
+                "tools_registered": tools_registered,
             }
-        elif name == "register_tools_batch":
-            context_id = arguments.get("context_id")
-            tools = []
-            for t in arguments["tools"]:
-                tools.append(ToolDefinition(
-                    domain=t["domain"],
-                    tool_name=t["tool_name"],
-                    description=t["description"],
-                    args=t.get("args", {}),
-                    output=t.get("output", {}),
-                ))
-            count = self.tool_registry.register_batch(tools, context_id)
-            return {"success": True, "message": f"{count} tools registered", "context_id": context_id}
-        
-        elif name == "set_entity_memory":
-            result = await self.memory_manager.set_entity_memory(
-                arguments["context_id"],
-                arguments["entities"],
-                arguments.get("metadata"),
-            )
-            return result.model_dump()
+            
+            if entity_result:
+                result["entity_memory_result"] = entity_result.model_dump()
+            
+            return result
         
         elif name == "save_important_task_memory":
             result = await self.memory_manager.set_task_memory(
                 arguments["context_id"],
+                arguments["task_id"],
                 arguments["messages"],
                 arguments.get("metadata"),
             )
             return result.model_dump()
         
-        elif name == "compress_working_memory":
-            result = await self.memory_manager.write_working_memory(
-                arguments["context_id"],
-                arguments["messages"],
-                arguments.get("keep_recent_count", 2),
-                arguments.get("metadata"),
-            )
-            return result
-            
-        elif name == "plan_tool_calls":
-            context_id = arguments["context_id"]
-            plan = await self.tool_planner.plan(context_id, arguments["query"])
-            self._get_context_plans(context_id)[plan.plan_id] = plan
-            self._get_context_executions(context_id).clear()
-            return {
-                "plan_id": plan.plan_id,
-                "context_id": plan.context_id,
-                "query": plan.query,
-                "steps": [s.model_dump() for s in plan.steps],
-                "context": plan.context,
-                "created_at": plan.created_at,
-            }
-        
-        elif name == "adjust_tool_plan":
+        elif name == "save_tool_execution_feedback_memory":
             context_id = arguments["context_id"]
             plan_id = arguments["plan_id"]
             feedback = arguments["execution_feedback"]
@@ -311,11 +271,25 @@ class ToolCallHandler:
                     tool_name=f.get("tool_name", ""),
                     domain=f.get("domain", ""),
                     success=f["success"],
+                    input=f.get("input"),
                     output=f.get("output"),
                     error=f.get("error"),
                     execution_time=f.get("execution_time", 0.0),
                 ))
             
+            # 先从执行结果中学习
+            for result in results:
+                if result.tool_name:
+                    # 调用learn_from_execution方法记录工具执行结果
+                    await self.plan_adjuster.learn_from_execution(
+                        context_id=context_id,
+                        tool_name=result.tool_name,
+                        success=result.success,
+                        input_data=result.input,
+                        output_data=result.output,
+                    )
+            
+            # 然后调整计划
             context_plans = self._get_context_plans(context_id)
             if plan_id in context_plans:
                 plan = context_plans[plan_id]
@@ -339,6 +313,28 @@ class ToolCallHandler:
                 }
             return {"error": "Plan not found"}
         
+        elif name == "compress_working_memory":
+            result = await self.memory_manager.write_working_memory(
+                arguments["context_id"],
+                arguments["messages"],
+                keep_recent_count=arguments.get("keep_recent_count", 2),
+                metadata=arguments.get("metadata"),
+            )
+            return result
+            
+        elif name == "plan_tool_calls":
+            context_id = arguments["context_id"]
+            plan = await self.tool_planner.plan(context_id, arguments["query"])
+            self._get_context_plans(context_id)[plan.plan_id] = plan
+            return {
+                "plan_id": plan.plan_id,
+                "context_id": plan.context_id,
+                "query": plan.query,
+                "steps": [s.model_dump() for s in plan.steps],
+                "context": plan.context,
+                "created_at": plan.created_at,
+            }
+
         elif name == "get_combined_memory":
             combined = await self.memory_manager.get_combined_memory(
                 arguments["context_id"],

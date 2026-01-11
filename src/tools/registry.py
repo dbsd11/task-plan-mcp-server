@@ -1,7 +1,7 @@
 """ToolRegistry - 客户端工具注册表"""
 
 from typing import Dict, Optional
-from ..memory import ToolDefinition
+from ..types import ToolDefinition
 
 
 class ToolRegistry:

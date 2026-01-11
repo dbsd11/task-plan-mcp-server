@@ -1,5 +1,4 @@
 """Memory模块 - 定义数据类型"""
-
 import uuid
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
@@ -49,6 +48,7 @@ class PlanExecutionResult(BaseModel):
     tool_name: str = Field(default="", description="工具名称")
     domain: str = Field(default="", description="工具领域")
     success: bool = Field(..., description="是否成功")
+    input: Any = Field(default=None, description="工具输入")
     output: Any = Field(default=None, description="工具输出")
     error: Optional[str] = Field(default=None, description="错误信息")
     execution_time: float = Field(default=0.0, description="执行时间")
