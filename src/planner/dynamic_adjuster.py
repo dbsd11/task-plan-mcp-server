@@ -234,7 +234,7 @@ class DynamicPlanAdjuster:
 
     async def learn_from_execution(
         self, context_id: str, tool_name: str, success: bool,
-        input_data: Dict, output_data: Any, create_time: str, execution_time: float = 0.0
+        input_data: Dict, output_data: Any, create_time: str, execution_time: float = 0.0, token_cost: int = 0
     ) -> None:
         """从执行结果中学习（针对指定Context）
 
@@ -253,4 +253,5 @@ class DynamicPlanAdjuster:
             success=success,
             create_time=create_time,
             execution_time=execution_time,
+            token_cost=token_cost,
         )

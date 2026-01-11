@@ -1,4 +1,5 @@
 """工具调用处理器 - 处理MCP工具调用逻辑"""
+import asyncio
 from typing import Any, Dict, List
 from mcp.types import Tool
 
@@ -59,16 +60,16 @@ ServerMCPTools = [
         },
     ),
     Tool(
-        name="save_important_task_memory",
-        description="Save important task memory with conversation history for a context",
+        name="save_important_plan_feedback_memory",
+        description="Save important plan feedback memory with conversation history for a context",
         inputSchema={
             "type": "object",
             "properties": {
                 "context_id": {"type": "string", "description": "Context ID"},
-                "task_id": {"type": "string", "description": "Task ID"},
+                "plan_id": {"type": "string", "description": "Plan ID"},
                 "messages": {
                     "type": "array",
-                    "description": "List of conversation messages",
+                    "description": "List of plan and plan feedback conversation messages",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -80,7 +81,7 @@ ServerMCPTools = [
                 },
                 "metadata": {"type": "object", "description": "Optional metadata"},
             },
-            "required": ["context_id", "task_id", "messages"],
+            "required": ["context_id", "plan_id", "messages"],
         },
     ),
     Tool(
@@ -126,17 +127,17 @@ ServerMCPTools = [
                     "items": {
                         "type": "object",
                         "properties": {
-                            "step_id": {"type": "string"},
                             "tool_name": {"type": "string"},
-                            "domain": {"type": "string"},
+                            "domain": {"type": ["string", "null"], "nullable": True},
                             "success": {"type": "boolean"},
-                            "input": {},
-                            "output": {},
-                            "error": {"type": "string"},
-                            "create_time": {"type": "string"},
-                            "execution_time": {"type": "number"},
-                        },                                                                                                                                                                                                                                       
-                        "required": ["step_id", "success"],
+                            "input": {"nullable": True},
+                            "output": {"nullable": True},
+                            "error": {"type": ["string", "null"], "nullable": True},
+                            "create_time": {"type": ["string", "null"], "nullable": True},
+                            "execution_time": {"type": "number", "nullable": True},
+                            "token_cost": {"type": "integer", "nullable": True},
+                        },                                                                                                                                                                                                                                        
+                        "required": ["tool_name", "success"],
                     },
                 },
             },
@@ -196,6 +197,10 @@ class ToolCallHandler:
         self.tool_planner = ToolPlanner(self.memory_manager, self.tool_registry)
         self.plan_adjuster = DynamicPlanAdjuster(self.memory_manager)
         self._context_plans: Dict[str, Plan] = {}
+        # 初始化异步队列用于后台处理工具调用，设置最大容量
+        self._tool_call_queue: asyncio.Queue = asyncio.Queue(maxsize=1000)  # 设置队列最大容量为1000
+        # 初始化后台任务为None，延迟到第一次调用异步方法时创建
+        self._background_task = None
     
     def _get_context_plans(self, context_id: str) -> Dict[str, Plan]:
         """获取context的计划字典"""
@@ -203,9 +208,96 @@ class ToolCallHandler:
             self._context_plans[context_id] = {}
         return self._context_plans[context_id]
     
+    async def _process_tool_call_queue(self) -> None:
+        """后台处理工具调用队列"""
+        while True:
+            try:
+                # 从队列中获取工具调用请求
+                tool_call = await self._tool_call_queue.get()
+                name = tool_call["name"]
+                arguments = tool_call["arguments"]
+                
+                # 处理工具调用（这部分是原有的同步处理逻辑）
+                if name == "save_important_plan_feedback_memory":
+                    await self.memory_manager.save_plan_feedback_memory(
+                        arguments["context_id"],
+                        arguments["plan_id"],
+                        arguments["messages"],
+                        arguments.get("metadata"),
+                    )
+                
+                elif name == "save_tool_execution_feedback_memory":
+                    context_id = arguments["context_id"]
+                    plan_id = arguments["plan_id"]
+                    feedback = arguments["execution_feedback"]
+                    
+                    results = []
+                    for f in feedback:
+                        from datetime import datetime
+                        results.append(PlanExecutionResult(
+                            plan_id=plan_id,
+                            context_id=context_id,
+                            step_id=f["step_id"],
+                            tool_name=f.get("tool_name", ""),
+                            domain=f.get("domain", ""),
+                            success=f["success"],
+                            input=f.get("input"),
+                            output=f.get("output"),
+                            error=f.get("error"),
+                            create_time=f.get("create_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                            execution_time=f.get("execution_time", 0.0),
+                            token_cost=f.get("token_cost", 0),
+                        ))
+                    
+                    # 先从执行结果中学习
+                    for result in results:
+                        if result.tool_name:
+                            # 检查工具是否已在registry中注册，如未注册则自动注册
+                            if not self.tool_registry.has_tool(result.tool_name, result.domain, context_id):
+                                # 创建并注册ToolDefinition
+                                tool_def = ToolDefinition(
+                                    domain=result.domain,
+                                    tool_name=result.tool_name,
+                                    description=f"Auto-registered tool from execution: {result.tool_name}",
+                                    args={},
+                                    output={}
+                                )
+                                self.tool_registry.register(tool_def, context_id)
+                            
+                            # 调用learn_from_execution方法记录工具执行结果
+                            await self.plan_adjuster.learn_from_execution(
+                                context_id=context_id,
+                                tool_name=result.tool_name,
+                                success=result.success,
+                                input_data=result.input,
+                                output_data=result.output,
+                                create_time=result.create_time,
+                                execution_time=result.execution_time,
+                                token_cost=result.token_cost,
+                            )
+                
+                elif name == "compress_working_memory":
+                    await self.memory_manager.write_working_memory(
+                        arguments["context_id"],
+                        arguments["messages"],
+                        keep_recent_count=arguments.get("keep_recent_count", 2),
+                        metadata=arguments.get("metadata"),
+                    )
+            except Exception as e:
+                # 捕获并记录异常，防止后台任务崩溃
+                print(f"Error processing tool call {name}: {str(e)}")
+            finally:
+                # 标记任务完成
+                self._tool_call_queue.task_done()
+    
     async def handle_tool_call(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """处理工具调用"""
         
+        # 延迟创建后台任务，确保事件循环已经运行
+        if self._background_task is None:
+            self._background_task = asyncio.create_task(self._process_tool_call_queue())
+        
+        # 对于plan_tool_calls、get_combined_memory和create_context，直接同步处理
         if name == "create_context":
             config = self.memory_manager.create_context(
                 name=arguments.get("name", ""),
@@ -223,7 +315,7 @@ class ToolCallHandler:
                         tool_name=t["tool_name"],
                         description=t["description"],
                         args=t.get("args", {}),
-                        output=t.get("output", {}),
+                        output=t.get("output", {})
                     ))
                 tools_registered = self.tool_registry.register_batch(tool_definitions, context_id)
             
@@ -249,102 +341,16 @@ class ToolCallHandler:
                 result["entity_memory_result"] = entity_result.model_dump()
             
             return result
-        
-        elif name == "save_important_task_memory":
-            result = await self.memory_manager.set_task_memory(
-                arguments["context_id"],
-                arguments["task_id"],
-                arguments["messages"],
-                arguments.get("metadata"),
-            )
-            return result.model_dump()
-        
-        elif name == "save_tool_execution_feedback_memory":
-            context_id = arguments["context_id"]
-            plan_id = arguments["plan_id"]
-            feedback = arguments["execution_feedback"]
-            
-            results = []
-            for f in feedback:
-                from datetime import datetime
-                results.append(PlanExecutionResult(
-                    plan_id=plan_id,
-                    context_id=context_id,
-                    step_id=f["step_id"],
-                    tool_name=f.get("tool_name", ""),
-                    domain=f.get("domain", ""),
-                    success=f["success"],
-                    input=f.get("input"),
-                    output=f.get("output"),
-                    error=f.get("error"),
-                    create_time=f.get("create_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                    execution_time=f.get("execution_time", 0.0),
-                ))
-            
-            # 先从执行结果中学习
-            for result in results:
-                if result.tool_name:
-                    # 检查工具是否已在registry中注册，如未注册则自动注册
-                    if not self.tool_registry.has_tool(result.tool_name, result.domain, context_id):
-                        # 创建并注册ToolDefinition
-                        tool_def = ToolDefinition(
-                            domain=result.domain,
-                            tool_name=result.tool_name,
-                            description=f"Auto-registered tool from execution: {result.tool_name}",
-                            args={},
-                            output={}
-                        )
-                        self.tool_registry.register(tool_def, context_id)
-                    
-                    # 调用learn_from_execution方法记录工具执行结果
-                    await self.plan_adjuster.learn_from_execution(
-                        context_id=context_id,
-                        tool_name=result.tool_name,
-                        success=result.success,
-                        input_data=result.input,
-                        output_data=result.output,
-                        create_time=result.create_time,
-                        execution_time=result.execution_time,
-                    )
-            
-            # 然后调整计划
-            context_plans = self._get_context_plans(context_id)
-            if plan_id in context_plans:
-                plan = context_plans[plan_id]
-                adjusted = await self.plan_adjuster.adjust_plan(context_id, plan, results)
-                updated_plan = Plan(
-                    plan_id=plan.plan_id,
-                    context_id=context_id,
-                    query=plan.query,
-                    steps=adjusted.adjusted_steps,
-                    context=plan.context,
-                    created_at=plan.created_at,
-                )
-                context_plans[plan_id] = updated_plan
-                return {
-                    "original_plan_id": adjusted.original_plan_id,
-                    "context_id": adjusted.context_id,
-                    "adjustment_reason": adjusted.adjustment_reason,
-                    "skipped_steps": adjusted.skipped_steps,
-                    "added_steps": [s.model_dump() for s in adjusted.added_steps],
-                    "adjusted_steps": [s.model_dump() for s in adjusted.adjusted_steps],
-                }
-            return {"error": "Plan not found"}
-        
-        elif name == "compress_working_memory":
-            result = await self.memory_manager.write_working_memory(
-                arguments["context_id"],
-                arguments["messages"],
-                keep_recent_count=arguments.get("keep_recent_count", 2),
-                metadata=arguments.get("metadata"),
-            )
-            return result
             
         elif name == "plan_tool_calls":
             context_id = arguments["context_id"]
-            plan = await self.tool_planner.plan(context_id, arguments["query"])
-            self._get_context_plans(context_id)[plan.plan_id] = plan
+            query = arguments["query"]
+            context_plans = self._get_context_plans(context_id)
+            
+            plan = await self.tool_planner.plan(context_id, query)
+            context_plans[plan.plan_id] = plan
             return {
+                "success": True,
                 "plan_id": plan.plan_id,
                 "context_id": plan.context_id,
                 "query": plan.query,
@@ -359,5 +365,14 @@ class ToolCallHandler:
                 arguments["query"],
                 arguments.get("summarize", False),
             )
-            return {"context_id": arguments["context_id"], "query": arguments["query"], **combined}
-        return {"error": f"Unknown tool: {name}"}
+            return {"success": True, "context_id": arguments["context_id"], "query": arguments["query"], **combined}
+        
+        # 其他所有工具调用，放入异步队列处理，直接返回success
+        else:
+            # 检查队列是否已满，如果未满则放入队列，否则丢弃
+            self._tool_call_queue.put_nowait({
+                "name": name,
+                "arguments": arguments
+            })
+            # 直接返回success：True
+            return {"success": True}

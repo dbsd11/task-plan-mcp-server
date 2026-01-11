@@ -53,6 +53,7 @@ class PlanExecutionResult(BaseModel):
     error: Optional[str] = Field(default=None, description="错误信息")
     create_time: str = Field(default="", description="创建时间 %Y-%m-%d %H:%M:%S")
     execution_time: float = Field(default=0.0, description="执行时间")
+    token_cost: int = Field(default=0, description="token成本")
 
 
 class AdjustedPlan(BaseModel):

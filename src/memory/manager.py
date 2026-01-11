@@ -206,14 +206,14 @@ class MemoryManager:
             context_id=context_id,
         )
 
-    async def set_task_memory(self, context_id: str, task_id: str,
+    async def save_plan_feedback_memory(self, context_id: str, plan_id: str,
                               messages: List[Dict[str, Any]],
                               metadata: Optional[Dict[str, Any]] = None) -> MemoryOperationResult:
-        """预设Task Memory
+        """Save Plan Memory
 
         Args:
             context_id: Context ID
-            task_id: 任务ID
+            plan_id: 计划ID
             messages: 对话消息列表 [{"role": "user|assistant", "content": "..."}]
             metadata: 元数据
 
@@ -230,7 +230,7 @@ class MemoryManager:
             workspace_id=workspace_id,
             extra_info={
                 **(metadata or {}),
-                "task_id": task_id,
+                "plan_id": plan_id,
             },
         )
         return MemoryOperationResult(
@@ -281,7 +281,8 @@ class MemoryManager:
     async def add_tool_call_result(self, context_id: str, tool_name: str,
                                     tool_input: Dict[str, Any], tool_output: Any,
                                     success: bool, create_time: str,
-                                    execution_time: float = 0.0) -> MemoryOperationResult:
+                                    execution_time: float = 0.0,
+                                    token_cost: int = 0) -> MemoryOperationResult:
         """添加工具调用结果到Tool Memory
 
         Args:
@@ -307,6 +308,7 @@ class MemoryManager:
                     "success": success,
                     "create_time": create_time,
                     "time_cost": execution_time,
+                    "token_cost": token_cost,
                 }
             ],
         )
