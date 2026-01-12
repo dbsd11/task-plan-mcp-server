@@ -85,7 +85,7 @@ ServerMCPTools = [
         },
     ),
     Tool(
-        name="compress_working_memory",
+        name="compress_history_messages",
         description="compress working memory and get compressed context history",
         inputSchema={
             "type": "object",
@@ -127,6 +127,7 @@ ServerMCPTools = [
                     "items": {
                         "type": "object",
                         "properties": {
+                            "step_id": {"type": ["string", "null"], "description": "Step ID", "nullable": True},
                             "tool_name": {"type": "string"},
                             "domain": {"type": ["string", "null"], "nullable": True},
                             "success": {"type": "boolean"},
@@ -237,7 +238,7 @@ class ToolCallHandler:
                         results.append(PlanExecutionResult(
                             plan_id=plan_id,
                             context_id=context_id,
-                            step_id=f["step_id"],
+                            step_id=f.get("step_id", ""),
                             tool_name=f.get("tool_name", ""),
                             domain=f.get("domain", ""),
                             success=f["success"],
@@ -276,7 +277,7 @@ class ToolCallHandler:
                                 token_cost=result.token_cost,
                             )
                 
-                elif name == "compress_working_memory":
+                elif name == "compress_history_messages":
                     await self.memory_manager.write_working_memory(
                         arguments["context_id"],
                         arguments["messages"],

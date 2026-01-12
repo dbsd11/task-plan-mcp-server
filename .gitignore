@@ -33,3 +33,6 @@ docs/_build/*
 test_compact_storage/*
 test_working_memory/*
 *.code-workspace
+node_modules
+static
+ui-ux-pro-max-codex

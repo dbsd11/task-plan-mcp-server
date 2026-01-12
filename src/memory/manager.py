@@ -412,7 +412,7 @@ class MemoryManager:
         workspace_id = self._get_workspace_id(context_id)
 
         result = await app.async_execute(
-            name="summary_working_memory_for_as",
+            name="summary_working_memory",
             messages=messages,
             working_summary_mode=working_summary_mode,
             compact_ratio_threshold=compact_ratio_threshold,

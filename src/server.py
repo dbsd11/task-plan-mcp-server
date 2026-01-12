@@ -16,6 +16,8 @@ from mcp.types import TextContent
 from .tool_call import ServerMCPTools, ToolCallHandler
 
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 class TaskPlanMCPServer:
     """Task-Plan MCP服务器 - 支持Context隔离"""
@@ -65,7 +67,33 @@ class TaskPlanMCPServer:
             # FastAPI 应用
             app = FastAPI(title="Task-Plan MCP Server", debug=True)
 
+            # 挂载静态文件
+            static_path = os.path.join(os.path.dirname(__file__), "..", "static")
+            # 挂载context-manager静态资源
+            context_manager_path = os.path.join(static_path, "context-manager")
+            print(f"Context manager path: {context_manager_path} exists: {os.path.exists(context_manager_path)}")
+
             @app.get("/")
+            async def index(request: Request):
+                """主页面 - 支持 SPA 路由"""
+                index_path = os.path.join(context_manager_path, "index.html")
+                if os.path.exists(index_path):
+                    return FileResponse(index_path)
+                return {"status": "ok", "service": "Task-Plan MCP Server", "transport": "sse"}
+
+            @app.get("/context-manager{path:path}")
+            async def context_manager_handler(request: Request, path: str):
+                """Context Manager 路由 - 支持 SPA 和静态文件"""
+                full_path = os.path.join(context_manager_path, path.lstrip('/'))                    
+                if os.path.exists(full_path) and os.path.isfile(full_path):
+                    return FileResponse(full_path)
+                else:
+                    index_path = os.path.join(context_manager_path, "index.html")
+                    if os.path.exists(index_path):
+                        return FileResponse(index_path)
+                return {"status": "error", "message": "Not found", "path": path}
+
+            @app.get("/health")
             async def health_check():
                 """健康检查端点，用于心跳检查"""
                 return {"status": "ok", "service": "Task-Plan MCP Server", "transport": "sse"}
@@ -74,6 +102,38 @@ class TaskPlanMCPServer:
             async def sse_endpoint(request: Request):
                 """SSE 端点"""
                 return await handle_sse(request)
+
+            # Context API 端点
+            @app.get("/api/contexts")
+            async def list_contexts():
+                """列出所有上下文"""
+                try:
+                    contexts = self.tool_call_handler.memory_manager.list_contexts()
+                    return {"contexts": [ctx.model_dump() for ctx in contexts]}
+                except Exception as e:
+                    return {"error": str(e), "contexts": []}
+
+            @app.get("/api/contexts/{context_id}")
+            async def get_context(context_id: str):
+                """获取上下文详情"""
+                try:
+                    config = self.tool_call_handler.memory_manager.get_context(context_id)
+                    if config:
+                        return config.model_dump()
+                    return {"error": "Context not found", "context_id": context_id}
+                except Exception as e:
+                    return {"error": str(e)}
+
+            @app.get("/api/contexts/{context_id}/memory")
+            async def get_combined_memory(context_id: str, query: str, summarize: bool = False):
+                """获取组合的memory（personal + task + tool）"""
+                try:
+                    memory = await self.tool_call_handler.memory_manager.get_combined_memory(
+                        context_id, query, summarize
+                    )
+                    return memory
+                except Exception as e:
+                    return {"error": str(e)}
 
             # 挂载 SSE 消息处理
             app.mount("/messages/", sse_transport.handle_post_message)

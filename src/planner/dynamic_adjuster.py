@@ -44,6 +44,7 @@ class DynamicPlanAdjuster:
             "failed_steps": [
                 {
                     "step_id": r.step_id,
+                    "tool_name": r.tool_name,
                     "error": r.error,
                 }
                 for r in failed_steps
