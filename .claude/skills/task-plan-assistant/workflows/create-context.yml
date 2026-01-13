@@ -1,0 +1,59 @@
+---
+name: Create Planning Context
+description: 为复杂任务创建独立的规划上下文，支持层级关系和环境配置
+---
+
+# 创建规划上下文
+
+## 工具调用
+`mcp_task_plan_server_create_context`
+
+## 参数说明
+
+| 参数 | 必需 | 说明 |
+|------|------|------|
+| name | ✅ | 上下文名称，简洁描述任务目标 |
+| description | ❌ | 上下文描述，补充任务细节 |
+| parent_context_id | ❌ | 父上下文 ID，创建层级关系 |
+| agent | ❌ | Agent 配置信息 |
+
+### Agent 配置结构
+
+```yaml
+agent:
+  name: Agent 名称
+  role: Agent 角色
+  environment:
+    nodejs_version: Node.js 版本
+    python_version: Python 版本
+    java_version: Java 版本
+  terminal_type: 终端类型 (powershell/cmd/bash/sh)
+  terminal_user: 用户信息
+```
+
+## 检查项
+
+### ⭐⭐⭐ 核心配置
+- [ ] 明确任务名称，避免过于宽泛或模糊
+- [ ] 描述准确反映任务范围和目标
+- [ ] 正确设置父子上下文关系（如需要）
+
+### ⭐⭐ 推荐配置
+- [ ] 配置完整的 Agent 环境信息
+- [ ] 设置合适的终端类型
+- [ ] 包含相关的用户/角色信息
+
+### ⭐ 可选增强
+- [ ] 添加元数据标签便于检索
+- [ ] 记录上下文创建时间
+- [ ] 设置上下文过期策略
+
+## 使用示例
+
+```yaml
+创建新上下文用于处理用户的代码审查任务
+上下文名称：code-review-2024
+父上下文：main-project-context
+Agent 角色：senior-developer
+环境配置：Python 3.11, Node.js 18
+```

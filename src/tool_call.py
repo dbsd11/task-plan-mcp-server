@@ -63,7 +63,7 @@ ServerMCPTools = [
         },
     ),
     Tool(
-        name="compress_history_messages",
+        name="compress_all_history_messages",
         description="compress working memory and get compressed context history",
         inputSchema={
             "type": "object",
@@ -71,7 +71,7 @@ ServerMCPTools = [
                 "context_id": {"type": "string", "description": "Context ID"},
                 "messages": {
                     "type": "array",
-                    "description": "List of messages to compress",
+                    "description": "List of all history messages to compress",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -270,7 +270,7 @@ class ToolCallHandler:
                                 token_cost=result.token_cost,
                             )
                 
-                elif name == "compress_history_messages":
+                elif name == "compress_all_history_messages":
                     await self.memory_manager.write_working_memory(
                         arguments["context_id"],
                         arguments["messages"],
