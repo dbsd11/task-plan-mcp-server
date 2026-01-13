@@ -10,7 +10,7 @@ ServerMCPTools = [
         inputSchema={
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Context name (optional)"},
+                "name": {"type": "string", "description": "Context name"},
                 "description": {"type": "string", "description": "Context description (optional)"},
                 "tools": {
                     "type": "array",
@@ -26,6 +26,26 @@ ServerMCPTools = [
                         },
                         "required": ["domain", "tool_name", "description"],
                     },
+                },
+                "agent": {
+                    "type": "object",
+                    "description": "Current Agent information",
+                    "properties": {
+                        "name": {"type": "string", "description": "Agent name"},
+                        "role": {"type": "string", "description": "Agent role"},
+                        "terminal_user": {"type": ["string", "null"], "description": "Terminal user information"},
+                        "terminal_type": {"type": ["string", "null"], "description": "Terminal type (powershell, cmd, bash, sh)"},
+                        "environment": {
+                            "type": ["object", "null"],
+                            "description": "Terminal environment information (e.g., Java, Python, Node.js versions)",
+                            "properties": {
+                                "java_version": {"type": ["string", "null"], "description": "Java version"},
+                                "python_version": {"type": ["string", "null"], "description": "Python version"},
+                                "nodejs_version": {"type": ["string", "null"], "description": "Node.js version"},
+                            },
+                        },
+                    },
+                    "required": ["name", "role"],
                 },
                 "entities": {
                     "type": "array",
@@ -52,10 +72,10 @@ ServerMCPTools = [
                                 },
                             },
                         },
-                        "required": ["entity_id", "entity_type", "name"],
+                        "required": ["entity_type", "name"],
                     },
                 },
-                "metadata": {"type": "object", "description": "Optional metadata for entity memory"},
+                "metadata": {"type": "object", "description": "Optional metadata for context memory"},
             },
         },
     ),
@@ -320,8 +340,26 @@ class ToolCallHandler:
                     ))
                 tools_registered = self.tool_registry.register_batch(tool_definitions, context_id)
             
-            # Handle entity memory setup if provided
-            entity_result = None
+            # Handle agent memory setup if provided
+            agent_result = None
+            if "agent" in arguments and arguments["agent"]:
+                agent_info = arguments["agent"]
+                env_info = agent_info.get("environment", {})
+                env_str = ", ".join([f"{k.replace('_version', '')}: {v}" for k, v in env_info.items() if v])
+                content_parts = [
+                    f"Agent Name: {agent_info.get('name', 'N/A')}",
+                    f"Agent Role: {agent_info.get('role', 'N/A')}",
+                    f"Terminal User: {agent_info.get('terminal_user', 'N/A')}",
+                    f"Terminal Type: {agent_info.get('terminal_type', 'N/A')}",
+                    f"Environment: {env_str if env_str else 'N/A'}",
+                ]
+                agent_content = "\n".join(content_parts)
+                agent_result = await self.memory_manager.set_personal_memory(
+                    context_id,
+                    [{"role": "assistant", "content": agent_content}],
+                    arguments.get("metadata"),
+                )
+
             if "entities" in arguments and arguments["entities"]:
                 entity_result = await self.memory_manager.set_entity_memory(
                     context_id,
@@ -337,10 +375,7 @@ class ToolCallHandler:
                 "created_at": config.created_at,
                 "tools_registered": tools_registered,
             }
-            
-            if entity_result:
-                result["entity_memory_result"] = entity_result.model_dump()
-            
+
             return result
             
         elif name == "plan_tool_calls":
