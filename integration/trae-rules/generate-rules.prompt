@@ -16,8 +16,8 @@
 - 输入参数:
   - `name`: 上下文名称 (必需)
   - `description`: 上下文描述 (必需)
-  - `agent`: Agent 信息 (可选，包含 environment, role 等)
-  - `parent_context_id`: 父上下文 ID (可选，用于创建层级关系)
+  - `agent`: Agent 信息 (尽量采集agent执行信息)
+  - `parent_context_id`: 父上下文 ID (复用类似任务的上下文ID)
 
 **mcp_task_plan_server_query_combined_memory**
 - 描述: 查询组合记忆，包括个人记忆和任务记忆
@@ -25,12 +25,12 @@
   - `context_id`: 上下文 ID (必需)
   - `query`: 查询内容 (必需)
 
-**mcp_task_plan_server_compress_history_messages**
+**mcp_task_plan_server_compress_all_history_messages**
 - 描述: 压缩历史消息，减少上下文长度
 - 输入参数:
   - `context_id`: 上下文 ID (必需)
-  - `messages`: 待压缩的消息列表 (必需)
-  - `keep_recent_count`: 保留的最近消息数 (默认: 1)
+  - `messages`: 任务待压缩的所有历史消息列表 (必需)
+  - `keep_recent_count`: 保留的最近消息数 (默认: 2)
   - `compact_ratio_threshold`: 压缩比例阈值 (默认: 0.75)
   - `max_total_tokens`: 最大 token 数 (默认: 20000)
   - `max_tool_message_tokens`: 工具消息最大 token (默认: 2000)
@@ -68,16 +68,13 @@
   - `tools[].args`: 额外参数
 
 ## 生成规则要求
-
 请根据以上 MCP Server 信息，为客户端生成完整的 Trae project rules.md 文件，包含:
-
 1. **项目概述**: 简要说明 MCP Server 的用途
 2. **工具使用说明**: 详细说明每个工具的用途、参数和使用场景
 3. **集成指南**: 最佳实践和使用建议, 示例如下: 
-i. 开始任务：创建上下文 → 规划步骤
+i. 开始任务：创建上下文(尽量采集agent信息并复用类似任务的上下文) → 规划步骤
 ii. 执行中：保存决策 → 记录工具反馈
-iii. 任务执行完：保存决策 → 记录工具反馈 → 压缩消息
-4. **注意事项**: 常见问题和限制
+iii. 任务执行完：保存决策 → 记录工具反馈 → 压缩所有历史上下文消息
 
 ## 输出格式
 1. 在.trae/rules/project_rules.md 输出完整的 project_rules.md 文件内容，使用 Markdown 格式。

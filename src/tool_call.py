@@ -12,7 +12,7 @@ ServerMCPTools = [
             "properties": {
                 "name": {"type": "string", "description": "Context name"},
                 "description": {"type": "string", "description": "Context description (optional)"},
-                "parent_context_id": {"type": ["string", "null"], "description": "Parent context ID for creating hierarchical context relationship (optional)", "nullable": True},
+                "parent_context_id": {"type": ["string", "null"], "description": "Context id of similar task (optional)", "nullable": True},
                 "agent": {
                     "type": "object",
                     "description": "Current Agent information",
@@ -311,6 +311,7 @@ class ToolCallHandler:
                 env_info = agent_info.get("environment", {})
                 env_str = ", ".join([f"{k.replace('_version', '')}: {v}" for k, v in env_info.items() if v]) if env_info else None
                 content_parts = [
+                    f"Context Description: {config.description}",
                     f"Agent Name: {agent_info.get('name', 'N/A')}",
                     f"Agent Role: {agent_info.get('role', 'N/A')}",
                     f"Terminal User: {agent_info.get('terminal_user', 'N/A')}",
