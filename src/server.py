@@ -118,8 +118,11 @@ class TaskPlanMCPServer:
                 """获取上下文详情"""
                 try:
                     config = self.tool_call_handler.memory_manager.get_context(context_id)
+                    tools = self.tool_call_handler.tool_registry.list_tools(context_id)
                     if config:
-                        return config.model_dump()
+                        context_data = config.model_dump()
+                        context_data["tools"] = tools
+                        return context_data
                     return {"error": "Context not found", "context_id": context_id}
                 except Exception as e:
                     return {"error": str(e)}

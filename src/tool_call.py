@@ -12,21 +12,7 @@ ServerMCPTools = [
             "properties": {
                 "name": {"type": "string", "description": "Context name"},
                 "description": {"type": "string", "description": "Context description (optional)"},
-                "tools": {
-                    "type": "array",
-                    "description": "List of tool definitions to register (optional)",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "domain": {"type": "string"},
-                            "tool_name": {"type": "string"},
-                            "description": {"type": "string"},
-                            "args": {"type": "object"},
-                            "output": {"type": "object"},
-                        },
-                        "required": ["domain", "tool_name", "description"],
-                    },
-                },
+                "parent_context_id": {"type": ["string", "null"], "description": "Parent context ID for creating hierarchical context relationship (optional)", "nullable": True},
                 "agent": {
                     "type": "object",
                     "description": "Current Agent information",
@@ -36,7 +22,7 @@ ServerMCPTools = [
                         "terminal_user": {"type": ["string", "null"], "description": "Terminal user information"},
                         "terminal_type": {"type": ["string", "null"], "description": "Terminal type (powershell, cmd, bash, sh)"},
                         "environment": {
-                            "type": ["object", "null"],
+                            "type": "object",
                             "description": "Terminal environment information (e.g., Java, Python, Node.js versions)",
                             "properties": {
                                 "java_version": {"type": ["string", "null"], "description": "Java version"},
@@ -47,36 +33,8 @@ ServerMCPTools = [
                     },
                     "required": ["name", "role"],
                 },
-                "entities": {
-                    "type": "array",
-                    "description": "List of entity definitions to set (optional)",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "entity_id": {"type": "string", "description": "Entity unique identifier"},
-                            "entity_type": {"type": "string", "description": "Entity type (e.g., person, project, system)"},
-                            "name": {"type": "string", "description": "Entity name"},
-                            "description": {"type": "string", "description": "Entity description"},
-                            "attributes": {"type": "object", "description": "Entity attributes as key-value pairs"},
-                            "relationships": {
-                                "type": "array",
-                                "description": "Entity relationships",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "target_entity_id": {"type": "string", "description": "Related entity ID"},
-                                        "relationship_type": {"type": "string", "description": "Relationship type (e.g., contains, depends_on, related_to)"},
-                                        "description": {"type": "string", "description": "Relationship description"},
-                                    },
-                                    "required": ["target_entity_id", "relationship_type"],
-                                },
-                            },
-                        },
-                        "required": ["entity_type", "name"],
-                    },
-                },
-                "metadata": {"type": "object", "description": "Optional metadata for context memory"},
             },
+            "required": ["name"],
         },
     ),
     Tool(
@@ -173,19 +131,34 @@ ServerMCPTools = [
             "properties": {
                 "context_id": {"type": "string", "description": "Context ID"},
                 "query": {"type": "string", "description": "User query to plan for"},
+                "tools": {
+                    "type": "array",
+                    "description": "List of tool definitions for dynamic planning (optional)",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "domain": {"type": "string"},
+                            "tool_name": {"type": "string"},
+                            "description": {"type": "string"},
+                            "args": {"type": "object"},
+                            "input": {"type": "object"},
+                            "output": {"type": "object"},
+                        },
+                        "required": ["domain", "tool_name", "description"],
+                    },
+                },
             },
             "required": ["context_id", "query"],
         },
     ),
     Tool(
-        name="get_combined_memory",
+        name="query_combined_memory",
         description="Get combined personal and task memory for a context",
         inputSchema={
             "type": "object",
             "properties": {
                 "context_id": {"type": "string", "description": "Context ID"},
                 "query": {"type": "string", "description": "Query to retrieve relevant memories"},
-                "summarize": {"type": "boolean", "description": "Whether to get summarized memory", "default": False},
             },
             "required": ["context_id", "query"],
         },
@@ -320,32 +293,23 @@ class ToolCallHandler:
         
         # 对于plan_tool_calls、get_combined_memory和create_context，直接同步处理
         if name == "create_context":
+            agent_info = None
+            if "agent" in arguments and arguments["agent"]:
+                agent_info = arguments["agent"]
+
             config = self.memory_manager.create_context(
                 name=arguments.get("name", ""),
                 description=arguments.get("description", ""),
+                agent_info=agent_info,
+                parent_context_id=arguments.get("parent_context_id"),
             )
             context_id = config.context_id
-            
-            # Handle tool registration if provided
-            tools_registered = 0
-            if "tools" in arguments and arguments["tools"]:
-                tool_definitions = []
-                for t in arguments["tools"]:
-                    tool_definitions.append(ToolDefinition(
-                        domain=t["domain"],
-                        tool_name=t["tool_name"],
-                        description=t["description"],
-                        args=t.get("args", {}),
-                        output=t.get("output", {})
-                    ))
-                tools_registered = self.tool_registry.register_batch(tool_definitions, context_id)
-            
+        
             # Handle agent memory setup if provided
             agent_result = None
-            if "agent" in arguments and arguments["agent"]:
-                agent_info = arguments["agent"]
+            if agent_info:
                 env_info = agent_info.get("environment", {})
-                env_str = ", ".join([f"{k.replace('_version', '')}: {v}" for k, v in env_info.items() if v])
+                env_str = ", ".join([f"{k.replace('_version', '')}: {v}" for k, v in env_info.items() if v]) if env_info else None
                 content_parts = [
                     f"Agent Name: {agent_info.get('name', 'N/A')}",
                     f"Agent Role: {agent_info.get('role', 'N/A')}",
@@ -359,22 +323,17 @@ class ToolCallHandler:
                     [{"role": "assistant", "content": agent_content}],
                     arguments.get("metadata"),
                 )
-
-            if "entities" in arguments and arguments["entities"]:
-                entity_result = await self.memory_manager.set_entity_memory(
-                    context_id,
-                    arguments["entities"],
-                    arguments.get("metadata"),
-                )
             
             result = {
                 "success": True,
                 "context_id": context_id,
                 "name": config.name,
                 "description": config.description,
-                "created_at": config.created_at,
-                "tools_registered": tools_registered,
+                "created_at": config.created_at
             }
+
+            if agent_result:
+                result["agent_memory_result"] = agent_result.model_dump()
 
             return result
             
@@ -382,6 +341,20 @@ class ToolCallHandler:
             context_id = arguments["context_id"]
             query = arguments["query"]
             context_plans = self._get_context_plans(context_id)
+            
+            # 动态工具定义支持
+            temp_tools = []
+            if "tools" in arguments and arguments["tools"]:
+                for t in arguments["tools"]:
+                    temp_tools.append(ToolDefinition(
+                        domain=t["domain"],
+                        tool_name=t["tool_name"],
+                        description=t["description"],
+                        args=t.get("args", {}),
+                        input=t.get("input", {}),
+                        output=t.get("output", {})
+                    ))
+                self.tool_registry.register_batch(temp_tools, context_id)
             
             plan = await self.tool_planner.plan(context_id, query)
             context_plans[plan.plan_id] = plan
@@ -395,11 +368,11 @@ class ToolCallHandler:
                 "created_at": plan.created_at,
             }
 
-        elif name == "get_combined_memory":
+        elif name == "query_combined_memory":
             combined = await self.memory_manager.get_combined_memory(
                 arguments["context_id"],
                 arguments["query"],
-                arguments.get("summarize", False),
+                True,
             )
             return {"success": True, "context_id": arguments["context_id"], "query": arguments["query"], **combined}
         

@@ -49,14 +49,17 @@ class MemoryManager:
             await self._app.stop()
             self._app = None
 
-    def create_context(self, name: str = "", description: str = "",
-                       metadata: Optional[Dict[str, Any]] = None) -> ContextConfig:
+    def create_context(self, name: str = "", description: str = "", agent_info: Optional[Dict[str, Any]] = None,
+                       metadata: Optional[Dict[str, Any]] = None,
+                       parent_context_id: Optional[str] = None) -> ContextConfig:
         """创建新的Context
 
         Args:
             name: Context名称
             description: Context描述
+            agent_info: 智能体信息（可选）
             metadata: 元数据
+            parent_context_id: 父Context ID（可选），用于创建层级关系
 
         Returns:
             Context配置
@@ -66,7 +69,9 @@ class MemoryManager:
             context_id=context_id,
             name=name,
             description=description,
+            agent_info=agent_info,
             metadata=metadata or {},
+            parent_context_id=parent_context_id,
         )
         self._contexts[context_id] = config
         return config
@@ -153,56 +158,9 @@ class MemoryManager:
             extra_info=metadata or {},
         )
         return MemoryOperationResult(
-            success=result is not None and len(result.get("metadata", {}).get("memory_list", [])) > 0,
+            success=result.get("success", False),
             message="Personal memory set",
             memory_type="personal",
-            context_id=context_id,
-        )
-
-    async def set_entity_memory(self, context_id: str, entities: List[Dict[str, Any]],
-                                metadata: Optional[Dict[str, Any]] = None) -> MemoryOperationResult:
-        """预设Entity Memory
-
-        Args:
-            context_id: Context ID
-            entities: 实体定义列表
-            metadata: 元数据
-
-        Returns:
-            操作结果
-        """
-        app = await self._get_app()
-        workspace_id = self._get_workspace_id(context_id)
-
-        for entity in entities:
-            messages = [
-                {
-                    "role": "user",
-                    "content": f"Entity: {entity.get('name', entity.get('entity_id', 'unknown'))} "
-                               f"Type: {entity.get('entity_type', 'unknown')}\n"
-                               f"Description: {entity.get('description', 'N/A')}\n"
-                               f"Attributes: {entity.get('attributes', {})}\n"
-                               f"Relationships: {entity.get('relationships', [])}"
-                },
-            ]
-            await app.async_execute(
-                name="summary_personal_memory",
-                trajectories=[
-                    {"messages": messages, "score": 1.0},
-                ],
-                workspace_id=workspace_id,
-                extra_info={
-                    **(metadata or {}),
-                    "entity_id": entity.get("entity_id", ""),
-                    "entity_type": entity.get("entity_type", ""),
-                    "entity_name": entity.get("name", ""),
-                },
-            )
-
-        return MemoryOperationResult(
-            success=True,
-            message=f"Entity memory set for {len(entities)} entities",
-            memory_type="entity",
             context_id=context_id,
         )
 
@@ -523,12 +481,16 @@ class MemoryManager:
             context_id=context_id,
         )
 
-    async def get_combined_memory(self, context_id: str, query: str, summarize: bool = False) -> Dict[str, str]:
+    async def get_combined_memory(self, context_id: str, query: str, summarize: bool = False,
+                                   include_parent: bool = False, max_depth: int = 2) -> Dict[str, str]:
         """获取组合的memory（personal + task + tool）
 
         Args:
             context_id: Context ID
             query: 查询语句
+            summarize: 是否总结工具记忆
+            include_parent: 是否包含父Context的memory
+            max_depth: 最大递归深度
 
         Returns:
             组合的记忆内容
@@ -547,8 +509,23 @@ class MemoryManager:
             tool_memory = await self.summarize_tool_memory(context_id, tool_names)
         else:
             tool_memory = await self.retrieve_tool_memory(context_id, tool_names)
-        return {
+
+        result = {
             "personal_memory": personal,
             "task_memory": task,
             "tool_memory": tool_memory,
         }
+
+        if include_parent and max_depth > 0:
+            config = self.get_context(context_id)
+            if config and config.parent_context_id:
+                parent_memory = await self.get_combined_memory(
+                    context_id=config.parent_context_id,
+                    query=query,
+                    summarize=summarize,
+                    include_parent=True,
+                    max_depth=max_depth - 1
+                )
+                result["parent_memory"] = parent_memory
+
+        return result

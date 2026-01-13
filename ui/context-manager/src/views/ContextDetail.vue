@@ -59,65 +59,65 @@
             </div>
           </div>
 
-          <div class="memory-section">
+          <div class="agent-section">
             <h2 class="section-title">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
               </svg>
-              记忆统计
+              Agent 信息
             </h2>
-            <div class="memory-grid">
-              <div class="memory-card card">
-                <div class="memory-icon personal">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                </div>
-                <div class="memory-info">
-                  <span class="memory-label">Personal Memory</span>
-                  <span class="memory-count">{{ store.currentContext.memory_stats?.personal || 0 }}</span>
+            <div class="agent-info">
+              <div class="agent-detail">
+                <span class="agent-label">Agent Name</span>
+                <span class="agent-value">{{ store.currentContext.agent_info?.name || '未配置' }}</span>
+              </div>
+              <div class="agent-detail">
+                <span class="agent-label">Role</span>
+                <span class="agent-value">{{ store.currentContext.agent_info?.role || '未配置' }}</span>
+              </div>
+              <div class="agent-detail">
+                <span class="agent-label">Terminal User</span>
+                <span class="agent-value">{{ store.currentContext.agent_info?.terminal_user || '未配置' }}</span>
+              </div>
+              <div class="agent-detail">
+                <span class="agent-label">Terminal Type</span>
+                <span class="agent-value">{{ store.currentContext.agent_info?.terminal_type || '未配置' }}</span>
+              </div>
+              <div v-if="store.currentContext.agent_info?.environment" class="agent-detail environment-detail">
+                <span class="agent-label">Environment</span>
+                <div class="environment-info">
+                  <span v-if="store.currentContext.agent_info.environment.java_version">Java: {{ store.currentContext.agent_info.environment.java_version }}</span>
+                  <span v-if="store.currentContext.agent_info.environment.python_version">Python: {{ store.currentContext.agent_info.environment.python_version }}</span>
+                  <span v-if="store.currentContext.agent_info.environment.nodejs_version">Node.js: {{ store.currentContext.agent_info.environment.nodejs_version }}</span>
                 </div>
               </div>
-              
-              <div class="memory-card card">
-                <div class="memory-icon task">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 11l3 3L22 4"/>
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                  </svg>
+            </div>
+          </div>
+
+          <div class="tools-section">
+            <h2 class="section-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+              </svg>
+              注册工具 ({{ store.currentContext.tools?.length || 0 }})
+            </h2>
+            <div v-if="store.currentContext.tools && store.currentContext.tools.length > 0" class="tools-grid">
+              <div v-for="(tool, index) in store.currentContext.tools" :key="index" class="tool-card card">
+                <div class="tool-header">
+                  <span class="tool-name">{{ tool.name }}</span>
                 </div>
-                <div class="memory-info">
-                  <span class="memory-label">Task Memory</span>
-                  <span class="memory-count">{{ store.currentContext.memory_stats?.task || 0 }}</span>
-                </div>
+                <p class="tool-description">{{ tool.description || '暂无描述' }}</p>
               </div>
-              
-              <div class="memory-card card">
-                <div class="memory-icon tool">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                  </svg>
-                </div>
-                <div class="memory-info">
-                  <span class="memory-label">Tool Memory</span>
-                  <span class="memory-count">{{ store.currentContext.memory_stats?.tool || 0 }}</span>
-                </div>
-              </div>
-              
-              <div class="memory-card card">
-                <div class="memory-icon working">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="4 17 10 11 4 5"/>
-                    <line x1="12" y1="19" x2="20" y2="19"/>
-                  </svg>
-                </div>
-                <div class="memory-info">
-                  <span class="memory-label">Working Memory</span>
-                  <span class="memory-count">{{ store.currentContext.memory_stats?.working || 0 }}</span>
-                </div>
-              </div>
+            </div>
+            <div v-else class="empty-tools">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11l-4-4"/>
+                <path d="M12 12l4-4"/>
+                <path d="M12 8l-4 4"/>
+              </svg>
+              <span>暂无注册工具</span>
             </div>
           </div>
 
@@ -428,6 +428,114 @@ watch(() => props.id, async (newId) => {
   font-size: 0.9375rem;
   color: var(--color-text-muted);
   line-height: 1.6;
+}
+
+.agent-section {
+  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.agent-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.agent-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.agent-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.agent-value {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.agent-value.mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+.environment-detail {
+  grid-column: 1 / -1;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--color-border);
+}
+
+.environment-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.environment-info span {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  background-color: var(--color-bg);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.tools-section {
+  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.tool-card {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tool-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.tool-description {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.empty-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.empty-tools svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .memory-section {

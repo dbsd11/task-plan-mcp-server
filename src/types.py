@@ -16,6 +16,7 @@ class ToolDefinition(BaseModel):
     tool_name: str = Field(..., description="工具名称")
     description: str = Field(..., description="工具描述")
     args: Dict[str, Any] = Field(default_factory=dict, description="工具参数schema")
+    input: Dict[str, Any] = Field(default_factory=dict, description="工具输入schema")
     output: Dict[str, Any] = Field(default_factory=dict, description="工具输出schema")
 
 
@@ -71,9 +72,11 @@ class ContextConfig(BaseModel):
     context_id: str = Field(default_factory=generate_context_id, description="Context唯一ID")
     name: str = Field(default="", description="Context名称")
     description: str = Field(default="", description="Context描述")
+    agent_info: Optional[Dict[str, Any]] = Field(default=None, description="智能体信息")
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat(), description="创建时间")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
-
+    parent_context_id: Optional[str] = Field(default=None, description="父Context ID，用于创建层级关系")
+    
 
 class ContextInfo(BaseModel):
     """Context信息"""
