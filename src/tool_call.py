@@ -22,7 +22,7 @@ ServerMCPTools = [
                         "terminal_user": {"type": ["string", "null"], "description": "Terminal user information"},
                         "terminal_type": {"type": ["string", "null"], "description": "Terminal type (powershell, cmd, bash, sh)"},
                         "environment": {
-                            "type": "object",
+                            "type": ["object", "null"],
                             "description": "Terminal environment information (e.g., Java, Python, Node.js versions)",
                             "properties": {
                                 "java_version": {"type": ["string", "null"], "description": "Java version"},
