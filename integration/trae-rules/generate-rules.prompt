@@ -1,81 +1,215 @@
 # 生成 MCP Server 客户端接入规则
-
 你正在为 `task-plan-mcp-server` MCP Server 生成客户端接入规则。
 
-## MCP Server 基础信息
-- **名称**: task-plan-mcp-server
-- **类型**: 任务规划与动态工具规划 MCP Server
-- **技术**: Python + ReMe 内存集成
-- **传输协议**: SSE (Server-Sent Events)
+# 示例如下
+```markdown
+## task-plan-mcp-server 客户端接入规则
 
-## Server 提供的工具列表
+## 项目概述
 
-### 1. 上下文管理工具
-**mcp_task_plan_server_create_context**
-- 描述: 创建新的规划上下文，用于隔离不同任务的记忆和规划
-- 输入参数:
-  - `name`: 上下文名称 (必需)
-  - `description`: 上下文描述 (必需)
-  - `agent`: Agent 信息 (尽量采集agent执行信息)
-  - `parent_context_id`: 父上下文 ID (复用类似任务的上下文ID)
+task-plan-mcp-server 是基于 Python + ReMe 内存集成的任务规划与动态工具规划 MCP Server，通过 SSE 协议提供上下文管理、规划反馈和动态规划能力。
 
-**mcp_task_plan_server_query_combined_memory**
-- 描述: 查询组合记忆，包括个人记忆和任务记忆
-- 输入参数:
-  - `context_id`: 上下文 ID (必需)
-  - `query`: 查询内容 (必需)
+## 工具使用规则
 
-**mcp_task_plan_server_compress_all_history_messages**
-- 描述: 压缩历史消息，减少上下文长度
-- 输入参数:
-  - `context_id`: 上下文 ID (必需)
-  - `messages`: 任务待压缩的所有历史消息列表 (必需)
-  - `keep_recent_count`: 保留的最近消息数 (默认: 2)
-  - `compact_ratio_threshold`: 压缩比例阈值 (默认: 0.75)
-  - `max_total_tokens`: 最大 token 数 (默认: 20000)
-  - `max_tool_message_tokens`: 工具消息最大 token (默认: 2000)
+### 强制使用规则
 
-### 2. 规划反馈工具
-**mcp_task_plan_server_save_important_plan_feedback_memory**
-- 描述: 保存重要的规划决策和用户反馈
-- 输入参数:
-  - `context_id`: 上下文 ID (必需)
-  - `plan_id`: 规划 ID (必需)
-  - `messages`: 对话消息列表 (必需)
-  - `metadata`: 元数据 (可选)
-  - `plan_id`: 规划 ID (必需)
+**你必须严格遵循以下工具使用规则：**
 
-**mcp_task_plan_server_save_tool_execution_feedback_memory**
-- 描述: 保存工具执行结果反馈
-- 输入参数:
-  - `context_id`: 上下文 ID (必需)
-  - `plan_id`: 规划 ID (必需)
-  - `execution_feedback`: 执行反馈列表 (必需)
-    - 每个反馈包含: tool_name, success, execution_time, error, domain, step_id, input, output, token_cost, create_time
+1. **每个任务必须创建上下文**：在执行任何操作之前，必须首先调用 `mcp_task_plan_server_create_context` 创建规划上下文
+2. **工具调用后必须记录反馈**：每次调用工具后，必须调用 `mcp_task_plan_server_save_tool_execution_feedback_memory` 保存执行结果
+3. **重要决策必须记录**：每个关键决策点必须调用 `mcp_task_plan_server_save_important_plan_feedback_memory` 记录决策和原因
+4. **任务结束前必须压缩上下文**：在任务完成前，必须调用 `mcp_task_plan_server_compress_all_history_messages` 压缩历史消息
 
-### 3. 动态规划工具
-**mcp_task_plan_server_plan_tool_calls**
-- 描述: 根据任务需求动态规划工具调用序列
-- 输入参数:
-  - `context_id`: 上下文 ID (必需)
-  - `query`: 用户查询 (必需)
-  - `tools`: 可用工具列表 (可选)
-  - `tools[].tool_name`: 工具名称
-  - `tools[].description`: 工具描述
-  - `tools[].domain`: 工具领域
-  - `tools[].input`: 输入 schema
-  - `tools[].output`: 输出 schema
-  - `tools[].args`: 额外参数
+### 工具详细定义
 
-## 生成规则要求
-请根据以上 MCP Server 信息，为客户端生成完整的 Trae project rules.md 文件，包含:
-1. **项目概述**: 简要说明 MCP Server 的用途
-2. **工具使用说明**: 详细说明每个工具的用途、参数和使用场景
-3. **集成指南**: 最佳实践和使用建议, 示例如下: 
-i. 开始任务：创建上下文(尽量采集agent信息并复用类似任务的上下文) → 规划步骤
-ii. 执行中：保存决策 → 记录工具反馈
-iii. 任务执行完：保存决策 → 记录工具反馈 → 压缩所有历史上下文消息
+#### 1. mcp_task_plan_server_create_context
 
-## 输出格式
+**用途**：创建规划上下文，隔离任务记忆
+
+**必需参数**：
+- `name`: 上下文名称（字符串，必填）
+- `description`: 任务描述（字符串，必填）
+- `agent`: 代理信息（对象，建议采集，包含 environment、name、role、terminal_type、terminal_user）
+- `parent_context_id`: 父上下文ID（字符串，可选，用于复用历史记忆）
+
+**调用时机**：每个任务开始时必须调用
+
+**示例**：
+```json
+{
+  "name": "medicine_platform_development",
+  "description": "开发医药管理平台功能模块",
+  "agent": {
+    "name": "Trae",
+    "role": "software_engineer",
+    "environment": {
+      "nodejs_version": "18"
+    }
+  }
+}
+```
+
+#### 2. mcp_task_plan_server_save_tool_execution_feedback_memory
+
+**用途**：保存工具执行结果反馈
+
+**必需参数**：
+- `context_id`: 上下文ID（字符串，必填）
+- `plan_id`: 计划ID（字符串，必填）
+- `execution_feedback`: 执行反馈（对象数组，必填）
+
+**execution_feedback 结构**：
+- `tool_name`: 工具名称（字符串，必填）
+- `success`: 是否成功（布尔值，必填）
+- `input`: 输入参数（对象，必填）
+- `output`: 输出结果（对象，必填）
+- `execution_time`: 执行时间（数字，必填）
+- `error`: 错误信息（字符串，可选）
+
+**调用时机**：每次调用工具后立即调用
+
+**示例**：
+```json
+{
+  "context_id": "ctx_123",
+  "plan_id": "plan_456",
+  "execution_feedback": [
+    {
+      "tool_name": "Read",
+      "success": true,
+      "input": {"file_path": "/path/to/file.java"},
+      "output": {"content": "文件内容..."},
+      "execution_time": 150
+    }
+  ]
+}
+```
+
+#### 3. mcp_task_plan_server_save_important_plan_feedback_memory
+
+**用途**：保存重要规划决策和用户反馈
+
+**必需参数**：
+- `context_id`: 上下文ID（字符串，必填）
+- `plan_id`: 计划ID（字符串，必填）
+- `messages`: 消息数组（数组，必填）
+
+**messages 结构**：
+- `role`: 角色（"user" 或 "assistant"，必填）
+- `content`: 内容（字符串，必填）
+
+**调用时机**：
+- 用户提出新需求时
+- 需要做出技术决策时
+- 收到用户反馈时
+- 遇到问题需要调整方案时
+
+#### 4. mcp_task_plan_server_plan_tool_calls
+
+**用途**：根据任务动态规划工具调用序列
+
+**必需参数**：
+- `context_id`: 上下文ID（字符串，必填）
+- `query`: 查询内容（字符串，必填）
+
+**调用时机**：
+- 遇到复杂任务需要规划时
+- 不确定下一步操作时
+- 需要查询历史经验时
+
+#### 5. mcp_task_plan_server_query_combined_memory
+
+**用途**：查询组合记忆（个人记忆+任务记忆）
+
+**必需参数**：
+- `context_id`: 上下文ID（字符串，必填）
+- `query`: 查询关键词（字符串，必填）
+
+**调用时机**：
+- 需要参考历史经验时
+- 遇到类似问题时
+- 需要获取上下文信息时
+
+#### 6. mcp_task_plan_server_compress_all_history_messages
+
+**用途**：压缩历史消息，减少上下文长度
+
+**必需参数**：
+- `context_id`: 上下文ID（字符串，必填）
+- `messages`: 任务所有历史消息数组，包含用户消息、助手消息、工具调用消息等（数组，必填）
+
+**可选参数**：
+- `keep_recent_count`: 保留最近消息数量（数字，默认值：2）
+- `compact_ratio_threshold`: 压缩比例阈值（数字，默认值：0.75）
+
+**调用时机**：
+- 任务结束前
+- 上下文接近 token 限制前
+- 长时间任务的中期
+
+### 任务执行流程
+
+#### 第一阶段：任务开始
+
+1. 调用 `mcp_task_plan_server_create_context` 创建上下文
+2. 如果是相似任务，传入 `parent_context_id` 复用历史记忆
+3. 记录创建成功的上下文ID
+
+#### 第二阶段：任务执行
+
+**循环执行以下步骤，直到任务完成：**
+
+1. **执行工具调用**
+   - 调用必要的工具（如 Read、Write、SearchCodebase 等）
+   
+2. **记录执行反馈**（每次工具调用后）
+   - 调用 `mcp_task_plan_server_save_tool_execution_feedback_memory`
+   - 记录工具名称、输入、输出、执行时间、成功状态
+   
+3. **遇到重要决策时**
+   - 调用 `mcp_task_plan_server_save_important_plan_feedback_memory`
+   - 记录决策内容、原因和选项对比
+   
+4. **需要规划下一步时**
+   - 调用 `mcp_task_plan_server_plan_tool_calls`
+   - 获取建议的工具调用序列
+   
+5. **需要查询历史经验时**
+   - 调用 `mcp_task_plan_server_query_combined_memory`
+   - 获取相关的历史经验和教训
+
+#### 第三阶段：任务收尾
+
+1. **保存所有重要反馈**
+   - 确保所有关键决策都已记录
+   
+2. **压缩历史上下文**
+   - 调用 `mcp_task_plan_server_compress_all_history_messages`
+   - 默认保留最近 2 条消息
+   - 压缩比例阈值设为 0.75
+
+### 错误处理规则
+
+**工具调用失败时：**
+1. 记录失败的工具调用到 `mcp_task_plan_server_save_tool_execution_feedback_memory`
+2. 在 `error` 字段中填写详细错误信息
+3. 尝试使用替代方案
+4. 如果多次失败，调用 `mcp_task_plan_server_save_important_plan_feedback_memory` 记录问题并等待用户指示
+
+**上下文接近限制时：**
+1. 立即调用 `mcp_task_plan_server_compress_all_history_messages`
+2. 压缩历史消息
+3. 继续任务执行
+
+### 关键建议
+
+1. **复用上下文可提升规划准确性**：通过 `parent_context_id` 复用相似任务的上下文
+2. **详细记录工具执行反馈**：每个工具的执行结果都应该被记录，有助于优化后续规划
+3. **主动压缩历史消息**：在上下文接近 token 限制前主动调用压缩，避免信息丢失
+4. **及时记录重要决策**：不要等到任务结束才记录重要决策，当时记录最准确
+5. **利用历史经验**：遇到问题时先查询组合记忆，可能有现成的解决方案
+```
+
+# 输出格式
 1. 在.trae/rules/project_rules.md 输出完整的 project_rules.md 文件内容，使用 Markdown 格式。
 2. 尽量排版紧凑，字数不超过500字
