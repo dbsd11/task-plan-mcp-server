@@ -63,15 +63,15 @@ ServerMCPTools = [
         },
     ),
     Tool(
-        name="compress_all_history_messages",
-        description="compress working memory and get compressed context history",
+        name="compress_all_local_history_messages",
+        description="compress all local history messages and get compressed context history",
         inputSchema={
             "type": "object",
             "properties": {
                 "context_id": {"type": "string", "description": "Context ID"},
                 "messages": {
                     "type": "array",
-                    "description": "List of all history messages to compress",
+                    "description": "List of all local history messages to compress",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -85,7 +85,7 @@ ServerMCPTools = [
                 "compact_ratio_threshold": {"type": "number", "description": "Compression ratio threshold", "default": 0.75},
                 "max_total_tokens": {"type": "integer", "description": "Max total tokens", "default": 20000},
                 "max_tool_message_tokens": {"type": "integer", "description": "Max tool message tokens", "default": 2000},
-                "keep_recent_count": {"type": "integer", "description": "Number of recent messages to keep", "default": 1},
+                "keep_recent_count": {"type": "integer", "description": "Number of recent messages to keep", "default": 2},
                 "metadata": {"type": "object", "description": "Optional metadata"},
             },
             "required": ["context_id", "messages"],
