@@ -18,7 +18,7 @@ task-plan-mcp-server 是基于 Python + ReMe 内存集成的任务规划与动�
 1. **每个任务必须创建上下文**：在执行任何操作之前，必须首先调用 `mcp_task_plan_server_create_context` 创建规划上下文
 2. **工具调用后必须记录反馈**：每次调用工具后，必须调用 `mcp_task_plan_server_save_tool_execution_feedback_memory` 保存执行结果
 3. **重要决策必须记录**：每个关键决策点必须调用 `mcp_task_plan_server_save_important_plan_feedback_memory` 记录决策和原因
-4. **任务结束前必须压缩上下文**：在任务完成前，必须调用 `mcp_task_plan_server_compress_all_history_messages` 压缩历史消息
+4. **任务结束前必须压缩上下文**：在任务完成前，必须调用 `mcp_task_plan_server_compress_all_local_history_messages` 压缩历史消息
 
 ### 工具详细定义
 
@@ -130,7 +130,7 @@ task-plan-mcp-server 是基于 Python + ReMe 内存集成的任务规划与动�
 - 遇到类似问题时
 - 需要获取上下文信息时
 
-#### 6. mcp_task_plan_server_compress_all_history_messages
+#### 6. mcp_task_plan_server_compress_all_local_history_messages
 
 **用途**：压缩历史消息，减少上下文长度
 
@@ -184,7 +184,7 @@ task-plan-mcp-server 是基于 Python + ReMe 内存集成的任务规划与动�
    - 确保所有关键决策都已记录
    
 2. **压缩历史上下文**
-   - 调用 `mcp_task_plan_server_compress_all_history_messages`
+   - 调用 `mcp_task_plan_server_compress_all_local_history_messages`
    - 默认保留最近 2 条消息
    - 压缩比例阈值设为 0.75
 
@@ -197,7 +197,7 @@ task-plan-mcp-server 是基于 Python + ReMe 内存集成的任务规划与动�
 4. 如果多次失败，调用 `mcp_task_plan_server_save_important_plan_feedback_memory` 记录问题并等待用户指示
 
 **上下文接近限制时：**
-1. 立即调用 `mcp_task_plan_server_compress_all_history_messages`
+1. 立即调用 `mcp_task_plan_server_compress_all_local_history_messages`
 2. 压缩历史消息
 3. 继续任务执行
 

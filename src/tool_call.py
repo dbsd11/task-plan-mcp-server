@@ -270,7 +270,7 @@ class ToolCallHandler:
                                 token_cost=result.token_cost,
                             )
                 
-                elif name == "compress_all_history_messages":
+                elif name == "compress_all_local_history_messages":
                     await self.memory_manager.write_working_memory(
                         arguments["context_id"],
                         arguments["messages"],
