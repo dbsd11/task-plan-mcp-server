@@ -14,7 +14,7 @@ ServerMCPTools = [
                 "description": {"type": "string", "description": "Context description (optional)"},
                 "parent_context_id": {"type": ["string", "null"], "description": "Context id of similar task (optional)", "nullable": True},
                 "agent": {
-                    "type": "object",
+                    "type": ["object", "null"],
                     "description": "Current Agent information",
                     "properties": {
                         "name": {"type": "string", "description": "Agent name"},
@@ -38,93 +38,7 @@ ServerMCPTools = [
         },
     ),
     Tool(
-        name="save_important_plan_feedback_memory",
-        description="Save important plan feedback memory with conversation history for a context",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "context_id": {"type": "string", "description": "Context ID"},
-                "plan_id": {"type": "string", "description": "Plan ID"},
-                "messages": {
-                    "type": "array",
-                    "description": "List of plan and plan feedback conversation messages",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "role": {"type": "string", "enum": ["user", "assistant"]},
-                            "content": {"type": "string"},
-                        },
-                        "required": ["role", "content"],
-                    },
-                },
-                "metadata": {"type": "object", "description": "Optional metadata"},
-            },
-            "required": ["context_id", "plan_id", "messages"],
-        },
-    ),
-    Tool(
-        name="compress_all_local_history_messages",
-        description="compress all local history messages and get compressed context history",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "context_id": {"type": "string", "description": "Context ID"},
-                "messages": {
-                    "type": "array",
-                    "description": "List of all local history messages to compress",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "role": {"type": "string", "enum": ["user", "assistant", "tool"]},
-                            "content": {"type": "string"},
-                        },
-                        "required": ["role", "content"],
-                    },
-                },
-                "working_summary_mode": {"type": "string", "enum": ["auto", "manual"], "description": "Compression mode", "default": "auto"},
-                "compact_ratio_threshold": {"type": "number", "description": "Compression ratio threshold", "default": 0.75},
-                "max_total_tokens": {"type": "integer", "description": "Max total tokens", "default": 20000},
-                "max_tool_message_tokens": {"type": "integer", "description": "Max tool message tokens", "default": 2000},
-                "keep_recent_count": {"type": "integer", "description": "Number of recent messages to keep", "default": 2},
-                "metadata": {"type": "object", "description": "Optional metadata"},
-            },
-            "required": ["context_id", "messages"],
-        },
-    ),
-    Tool(
-        name="save_tool_execution_feedback_memory",
-        description="save tool execution feedback",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "context_id": {"type": "string", "description": "Context ID"},
-                "plan_id": {"type": "string", "description": "Original plan ID"},
-                "execution_feedback": {
-                    "type": "array",
-                    "description": "Feedback from execution",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "step_id": {"type": ["string", "null"], "description": "Step ID", "nullable": True},
-                            "tool_name": {"type": "string"},
-                            "domain": {"type": ["string", "null"], "nullable": True},
-                            "success": {"type": "boolean"},
-                            "input": {"nullable": True},
-                            "output": {"nullable": True},
-                            "error": {"type": ["string", "null"], "nullable": True},
-                            "create_time": {"type": ["string", "null"], "nullable": True},
-                            "execution_time": {"type": "number", "nullable": True},
-                            "token_cost": {"type": "integer", "nullable": True},
-                        },                                                                                                                                                                                                                                        
-                        "required": ["tool_name", "success"],
-                    },
-                },
-            },
-            "required": ["context_id", "plan_id", "execution_feedback"],
-        },
-    ),
-    Tool(
-        name="plan_tool_calls",
+        name="decision",
         description="Dynamically plan tool calls for a query within a context",
         inputSchema={
             "type": "object",
@@ -152,17 +66,55 @@ ServerMCPTools = [
         },
     ),
     Tool(
-        name="query_combined_memory",
-        description="Get combined personal and task memory for a context",
+        name="report_action_result",
+        description="Unified tool for reporting action result: plan feedback, and tool execution feedback",
         inputSchema={
             "type": "object",
             "properties": {
                 "context_id": {"type": "string", "description": "Context ID"},
-                "query": {"type": "string", "description": "Query to retrieve relevant memories"},
+                "type": {
+                    "type": "string",
+                    "enum": ["plan_feedback", "tool_execution_feedback"],
+                    "description": "Type of memory report: plan_feedback for saving plan feedback, tool_execution_feedback for tool execution feedback"
+                },
+                "plan_id": {"type": "string", "description": "Plan ID (required for plan_feedback and tool_execution_feedback)"},
+                "messages": {
+                    "type": "array",
+                    "description": "Messages to report (for plan_feedback or tool_execution_feedback)",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "role": {"type": "string", "enum": ["user", "assistant", "tool"]},
+                            "content": {"type": "string"},
+                        },
+                        "required": ["role", "content"],
+                    },
+                },
+                "tool_execution_feedback": {
+                    "type": "array",
+                    "description": "Tool execution feedback (for tool_execution_feedback)",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "step_id": {"type": ["string", "null"], "description": "Step ID", "nullable": True},
+                            "tool_name": {"type": "string"},
+                            "domain": {"type": ["string", "null"], "nullable": True},
+                            "success": {"type": "boolean"},
+                            "input": {"nullable": True},
+                            "output": {"nullable": True},
+                            "error": {"type": ["string", "null"], "nullable": True},
+                            "create_time": {"type": ["string", "null"], "nullable": True},
+                            "execution_time": {"type": "number", "nullable": True},
+                            "token_cost": {"type": "integer", "nullable": True},
+                        },
+                        "required": ["tool_name", "success"],
+                    },
+                },
+                "metadata": {"type": "object", "description": "Optional metadata"},
             },
-            "required": ["context_id", "query"],
+            "required": ["context_id", "type"],
         },
-    ),
+    )
 ]
 
 import os
@@ -211,72 +163,76 @@ class ToolCallHandler:
                 name = tool_call["name"]
                 arguments = tool_call["arguments"]
                 
-                # 处理工具调用（这部分是原有的同步处理逻辑）
-                if name == "save_important_plan_feedback_memory":
-                    await self.memory_manager.save_plan_feedback_memory(
-                        arguments["context_id"],
-                        arguments["plan_id"],
-                        arguments["messages"],
-                        arguments.get("metadata"),
-                    )
-                
-                elif name == "save_tool_execution_feedback_memory":
+                # 处理统一的report_action_result tool
+                if name == "report_action_result":
                     context_id = arguments["context_id"]
-                    plan_id = arguments["plan_id"]
-                    feedback = arguments["execution_feedback"]
+                    report_type = arguments.get("type")
                     
-                    results = []
-                    for f in feedback:
-                        from datetime import datetime
-                        results.append(PlanExecutionResult(
-                            plan_id=plan_id,
-                            context_id=context_id,
-                            step_id=f.get("step_id", ""),
-                            tool_name=f.get("tool_name", ""),
-                            domain=f.get("domain", ""),
-                            success=f["success"],
-                            input=f.get("input"),
-                            output=f.get("output"),
-                            error=f.get("error"),
-                            create_time=f.get("create_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                            execution_time=f.get("execution_time", 0.0),
-                            token_cost=f.get("token_cost", 0),
-                        ))
-                    
-                    # 先从执行结果中学习
-                    for result in results:
-                        if result.tool_name:
-                            # 检查工具是否已在registry中注册，如未注册则自动注册
-                            if not self.tool_registry.has_tool(result.tool_name, result.domain, context_id):
-                                # 创建并注册ToolDefinition
-                                tool_def = ToolDefinition(
-                                    domain=result.domain,
-                                    tool_name=result.tool_name,
-                                    description=f"Auto-registered tool from execution: {result.tool_name}",
-                                    args={},
-                                    output={}
-                                )
-                                self.tool_registry.register(tool_def, context_id)
-                            
-                            # 调用learn_from_execution方法记录工具执行结果
-                            await self.plan_adjuster.learn_from_execution(
-                                context_id=context_id,
-                                tool_name=result.tool_name,
-                                success=result.success,
-                                input_data=result.input,
-                                output_data=result.output,
-                                create_time=result.create_time,
-                                execution_time=result.execution_time,
-                                token_cost=result.token_cost,
+                    if report_type == "plan_feedback":
+                        if arguments.get("messages", []):
+                            await self.memory_manager.save_plan_feedback_memory(
+                                context_id,
+                                arguments.get("plan_id", ""),
+                                arguments.get("messages", []),
+                                arguments.get("metadata"),
                             )
-                
-                elif name == "compress_all_local_history_messages":
-                    await self.memory_manager.write_working_memory(
-                        arguments["context_id"],
-                        arguments["messages"],
-                        keep_recent_count=arguments.get("keep_recent_count", 2),
-                        metadata=arguments.get("metadata"),
-                    )
+                    
+                    elif report_type == "tool_execution_feedback":
+                        plan_id = arguments.get("plan_id", "")
+                        if arguments.get("messages", []):
+                            await self.memory_manager.save_plan_feedback_memory(
+                                context_id,
+                                arguments.get("plan_id", ""),
+                                arguments.get("messages", []),
+                                arguments.get("metadata"),
+                            )
+
+                        feedback = arguments.get("tool_execution_feedback", [])
+                        
+                        results = []
+                        for f in feedback:
+                            from datetime import datetime
+                            results.append(PlanExecutionResult(
+                                plan_id=plan_id,
+                                context_id=context_id,
+                                step_id=f.get("step_id", ""),
+                                tool_name=f.get("tool_name", ""),
+                                domain=f.get("domain", ""),
+                                success=f["success"],
+                                input=f.get("input"),
+                                output=f.get("output"),
+                                error=f.get("error"),
+                                create_time=f.get("create_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                                execution_time=f.get("execution_time", 0.0),
+                                token_cost=f.get("token_cost", 0),
+                            ))
+                        
+                        # 先从执行结果中学习
+                        for result in results:
+                            if result.tool_name:
+                                # 检查工具是否已在registry中注册，如未注册则自动注册
+                                if not self.tool_registry.has_tool(result.tool_name, result.domain, context_id):
+                                    # 创建并注册ToolDefinition
+                                    tool_def = ToolDefinition(
+                                        domain=result.domain,
+                                        tool_name=result.tool_name,
+                                        description=f"Auto-registered tool from execution: {result.tool_name}",
+                                        args={},
+                                        output={}
+                                    )
+                                    self.tool_registry.register(tool_def, context_id)
+                                
+                                # 调用learn_from_execution方法记录工具执行结果
+                                await self.plan_adjuster.learn_from_execution(
+                                    context_id=context_id,
+                                    tool_name=result.tool_name,
+                                    success=result.success,
+                                    input_data=result.input,
+                                    output_data=result.output,
+                                    create_time=result.create_time,
+                                    execution_time=result.execution_time,
+                                    token_cost=result.token_cost,
+                                )
             except Exception as e:
                 # 捕获并记录异常，防止后台任务崩溃
                 print(f"Error processing tool call {name}: {str(e)}")
@@ -291,7 +247,9 @@ class ToolCallHandler:
         if self._background_task is None:
             self._background_task = asyncio.create_task(self._process_tool_call_queue())
         
-        # 对于plan_tool_calls、get_combined_memory和create_context，直接同步处理
+        result = {}
+
+        # 对于decision、get_combined_memory和create_context，直接同步处理
         if name == "create_context":
             agent_info = None
             if "agent" in arguments and arguments["agent"]:
@@ -335,10 +293,8 @@ class ToolCallHandler:
 
             if agent_result:
                 result["agent_memory_result"] = agent_result.model_dump()
-
-            return result
             
-        elif name == "plan_tool_calls":
+        elif name == "decision":
             context_id = arguments["context_id"]
             query = arguments["query"]
             context_plans = self._get_context_plans(context_id)
@@ -359,30 +315,44 @@ class ToolCallHandler:
             
             plan = await self.tool_planner.plan(context_id, query)
             context_plans[plan.plan_id] = plan
-            return {
+            
+            # 将 steps 转换为 next_action，并在最后添加 report_action_result 步骤
+            steps = []
+            for step in plan.steps:
+                steps.append(step.model_dump())
+            
+            result = {
                 "success": True,
                 "plan_id": plan.plan_id,
                 "context_id": plan.context_id,
                 "query": plan.query,
-                "steps": [s.model_dump() for s in plan.steps],
+                "steps": steps,
+                "continuation": continuation_actions,
                 "context": plan.context,
                 "created_at": plan.created_at,
             }
-
-        elif name == "query_combined_memory":
-            combined = await self.memory_manager.get_combined_memory(
-                arguments["context_id"],
-                arguments["query"],
-                True,
-            )
-            return {"success": True, "context_id": arguments["context_id"], "query": arguments["query"], **combined}
-        
+            
         # 其他所有工具调用，放入异步队列处理，直接返回success
-        else:
+        elif name == "report_action_result":
             # 检查队列是否已满，如果未满则放入队列，否则丢弃
             self._tool_call_queue.put_nowait({
                 "name": name,
                 "arguments": arguments
             })
             # 直接返回success：True
-            return {"success": True}
+            result = {"success": True}
+
+        # 构建后续可能的操作列表
+        result["next_action"] = [
+            {
+                "tool_name": "decision",
+                "domain": "system",
+                "condition": "if next need continue decision"
+            },
+            {
+                "tool_name": "report_action_result",
+                "domain": "system",
+                "condition": "if next need continue report action result"
+            }
+        ]
+        return result

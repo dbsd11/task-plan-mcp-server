@@ -1,0 +1,42 @@
+workflow: task-plan-mcp-server Runtime Best Practices
+description: 验证运行时是否遵循响应式内存管理最佳实践
+checklist:
+  - content: 每次任务开始时调用 create_context 并保存 context_id
+    importance: high
+    ⭐: 3
+    
+  - content: 工具调用后立即调用 report_context_memory(type: "tool_execution_feedback")
+    importance: high
+    ⭐: 3
+    
+  - content: 关键决策点调用 report_context_memory(type: "plan_feedback")
+    importance: high
+    ⭐: 3
+    
+  - content: report_context_memory 调用包含完整的必填参数
+    importance: high
+    ⭐: 3
+    
+  - content: tool_execution_feedback 包含完整的反馈字段 (tool_name, success, input, output, execution_time)
+    importance: high
+    ⭐: 3
+    
+  - content: 任务结束前执行兜底检查，确认无遗漏上报
+    importance: high
+    ⭐: 3
+    
+  - content: 相似任务使用 parent_context_id 复用历史记忆
+    importance: medium
+    ⭐: 2
+    
+  - content: 失败的工具调用在 error 字段记录详细信息
+    importance: medium
+    ⭐: 2
+    
+  - content: 多次失败时调用 plan_feedback 记录问题并等待处理
+    importance: medium
+    ⭐: 2
+    
+  - content: 动态工具定义时使用 tools 参数注册新工具
+    importance: low
+    ⭐: 1

@@ -297,7 +297,7 @@ class MemoryManager:
         if result:
             memory_list = result.get("metadata", {}).get("memory_list", [])
             if memory_list:
-                return "\n".join(m.get("content", "") for m in memory_list)
+                return json.dumps(memory_list, ensure_ascii=False)
         return ""
 
     async def summarize_tool_memory(self, context_id: str, tool_name: str) -> str:
@@ -320,7 +320,7 @@ class MemoryManager:
         if result:
             memory_list = result.get("metadata", {}).get("memory_list", [])
             if memory_list:
-                return memory_list[0].get("content", "")
+                return '\n'.join([m.get("content", "") for m in memory_list])
         return ""
 
     async def summarize_all_tool_memory(self, context_id: str) -> str:
