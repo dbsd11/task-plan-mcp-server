@@ -1,9 +1,0 @@
-{
-  "name": "task-plan-mcp-server",
-  "description": "基于 ReMe 内存集成的任务规划与动态工具规划 MCP Server，遵循响应式内存管理设计",
-  "author": "AI Assistant",
-  "version": "1.0.0",
-  "tags": ["mcp-server", "task-planning", "memory-management", "python"],
-  "examples": [],
-  "maintainers": []
-}

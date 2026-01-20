@@ -1,0 +1,22 @@
+{
+  "name": "task-plan-assistant",
+  "description": "智能任务规划与执行助手 - 提供复杂任务分解、工具调用规划、执行进度追踪和经验沉淀功能",
+  "version": "1.0.0",
+  "author": "task-plan-mcp-server",
+  "license": "MIT",
+  "keywords": [
+    "task-planning",
+    "workflow-automation",
+    "execution-tracking",
+    "mcp-tools"
+  ],
+  "engines": {
+    "claude": ">= 3.5.0"
+  },
+  "main": "SKILL.md",
+  "workflows": [
+    "workflows/create-context.yml",
+    "workflows/decision.yml",
+    "workflows/report-action-result.yml"
+  ]
+}

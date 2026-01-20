@@ -1,0 +1,78 @@
+---
+name: report-action-result
+description: 统一上报执行结果和决策反馈，支持计划反馈和工具执行反馈两种模式
+importance: critical
+---
+
+# 执行结果上报
+
+## 使用场景
+- 每次工具调用完成后
+- 遇到重要决策需要记录时
+- 任务执行过程中需要同步状态时
+- 任务结束时需要最终汇总时
+
+## 检查项
+- [ ] 确认已获取有效的 context_id
+- [ ] 确定正确的反馈类型（type）
+- [ ] 准备完整的执行反馈数据
+- [ ] 验证 tool_execution_feedback 结构完整性
+- [ ] 验证 plan_feedback 结构完整性
+- [ ] 调用 report_action_result 工具
+- [ ] 确认上报成功
+
+## 反馈类型
+
+### plan_feedback 模式
+用于记录重要决策和计划调整：
+- [ ] messages：消息数组，必填
+- [ ] plan_id：关联的计划ID
+- [ ] metadata：附加元数据
+
+### tool_execution_feedback 模式
+用于记录工具执行结果：
+每个执行反馈包含：
+- [ ] tool_name：工具名称，必填
+- [ ] success：是否成功，必填
+- [ ] input：输入参数，必填
+- [ ] output：输出结果，必填
+- [ ] execution_time：执行时间（毫秒）
+- [ ] error：错误信息
+- [ ] step_id：关联步骤ID
+- [ ] domain：工具领域
+- [ ] create_time：创建时间
+- [ ] token_cost：Token 消耗
+
+## 执行步骤
+1. 确认 context_id 有效性
+2. 选择反馈类型：
+   - 计划反馈：type = "plan_feedback"
+   - 执行反馈：type = "tool_execution_feedback"
+3. 收集反馈数据：
+   - 工具名称、执行结果、输入输出
+   - 执行时间、错误信息、Token 消耗
+   - 步骤ID、工具领域
+4. 组装反馈结构
+5. 调用 report_action_result 工具
+6. 确认上报结果
+
+## 执行反馈时机
+- [ ] 每个工具调用后立即上报
+- [ ] 遇到错误时立即上报
+- [ ] 重要决策点立即上报
+- [ ] 最后一步必须上报（同步到内存）
+
+## 成功标准
+- [ ] 反馈类型正确
+- [ ] 必填字段完整
+- [ ] 上报调用成功
+- [ ] 执行结果已同步
+
+## 失败处理
+- [ ] context_id 无效：使用最近的 context_id
+- [ ] 必填字段缺失：检查 tool_name、success、input、output
+- [ ] 上报失败：记录到本地，后续重试
+
+## 关联工具
+- create_context：上下文创建
+- decision：决策生成

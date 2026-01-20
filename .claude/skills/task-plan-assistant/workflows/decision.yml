@@ -1,0 +1,67 @@
+---
+name: decision
+description: 根据任务动态规划下一步行动序列，返回结构化的执行计划
+importance: critical
+---
+
+# 任务决策规划
+
+## 使用场景
+- 遇到复杂任务需要系统规划时
+- 不确定下一步操作时
+- 需要查询历史经验优化决策时
+- 任务进行中需要调整执行策略时
+
+## 检查项
+- [ ] 确认已获取有效的 context_id
+- [ ] 编写清晰的任务查询（query）
+- [ ] 分析并定义可用的工具集（tools）
+- [ ] 为每个工具指定正确的 domain
+- [ ] 为每个工具指定正确的 tool_name
+- [ ] 编写准确的工具描述（description）
+- [ ] 定义工具的参数结构（args）
+- [ ] 定义工具的输入输出结构（input/output）
+- [ ] 调用 decision 工具
+- [ ] 解析返回的 steps 序列
+- [ ] 提取 next_action 列表
+
+## 执行步骤
+1. 确认 context_id 有效性
+2. 提炼任务查询（query）：将用户需求转化为可执行的查询语句
+3. 分析任务所需工具：
+   - 确定工具 domain（file_system、system、database 等）
+   - 确定工具名称（tool_name）
+   - 编写工具描述
+   - 定义参数结构
+4. 组装工具定义数组（tools）
+5. 调用 decision 工具
+6. 解析返回结果：
+   - 提取 plan_id
+   - 解析 steps 数组
+   - 提取 next_action 列表
+7. 转换 steps 为可执行步骤
+
+## 步骤结构说明
+每个步骤包含：
+- [ ] step_id：唯一标识符
+- [ ] tool_name：工具名称
+- [ ] domain：工具领域
+- [ ] parameters：调用参数
+- [ ] depends_on：依赖步骤列表
+- [ ] reasoning：执行原因
+- [ ] expected_output：期望输出
+
+## 成功标准
+- [ ] 成功获取 plan_id
+- [ ] steps 列表非空
+- [ ] next_action 包含正确的后续步骤
+- [ ] 每个步骤包含完整的执行信息
+
+## 失败处理
+- [ ] context_id 无效：返回第一步重新创建上下文
+- [ ] tools 格式错误：检查数组结构和必填字段
+- [ ] 无可用步骤：重新评估任务需求和工具定义
+
+## 关联工具
+- create_context：前置依赖
+- report_action_result：后续上报

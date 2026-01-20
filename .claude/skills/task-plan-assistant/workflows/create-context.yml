@@ -1,0 +1,40 @@
+---
+name: create-context
+description: 创建规划上下文，隔离任务记忆，为每个新任务建立独立的工作空间
+importance: critical
+---
+
+# 创建规划上下文
+
+## 任务开始
+每个任务必须首先创建上下文环境。
+
+## 检查项
+- [ ] 验证任务名称的规范性和唯一性
+- [ ] 编写清晰的任务描述（包含目标、范围、预期产出）
+- [ ] 检查是否存在可复用的父上下文（parent_context_id）
+- [ ] 配置代理信息（agent）：name、role、environment、terminal_type、terminal_user
+- [ ] 调用 create_context 工具
+- [ ] 记录返回的 context_id 供后续使用
+
+## 执行步骤
+1. 定义任务名称（name）：简洁明了的任务标识符
+2. 编写任务描述（description）：详细说明任务目标、范围和预期结果
+3. 检查父上下文：如有相关历史任务，传入 parent_context_id 复用经验
+4. 配置代理信息：提供当前代理的完整信息
+5. 调用 create_context 工具
+6. 保存 context_id 到任务上下文
+
+## 成功标准
+- [ ] 成功获取 context_id
+- [ ] 上下文创建时间已记录
+- [ ] 代理信息已正确绑定
+- [ ] 任务描述清晰完整
+
+## 失败处理
+- [ ] 网络错误：重试机制（最多3次）
+- [ ] 参数错误：检查必填参数 name 是否提供
+- [ ] 上下文冲突：检查 name 是否已存在
+
+## 关联工具
+- create_context：MCP 核心工具

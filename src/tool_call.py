@@ -327,7 +327,6 @@ class ToolCallHandler:
                 "context_id": plan.context_id,
                 "query": plan.query,
                 "steps": steps,
-                "continuation": continuation_actions,
                 "context": plan.context,
                 "created_at": plan.created_at,
             }
